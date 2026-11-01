@@ -71,7 +71,8 @@ cppup go --release
 
 ### `cppup clean`
 
-Delete the `build/` directory.
+Delete the `build/` directory and generated `modules/*.pcm` files. Module
+interface sources (`*.cppm`) are preserved.
 
 ### `cppup doctor`
 

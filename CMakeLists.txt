@@ -14,16 +14,20 @@ if(NOT CMAKE_GENERATOR)
   endif()
 endif()
 
-add_executable(cppup
-  src/main.cpp
-  src/commands.cpp
+add_library(cppup_core
   src/project.cpp
   src/env.cpp
   src/templates.cpp
   src/util.cpp
 )
 
-target_include_directories(cppup PRIVATE src)
+target_include_directories(cppup_core PUBLIC src)
+
+add_executable(cppup
+  src/main.cpp
+  src/commands.cpp
+)
+target_link_libraries(cppup PRIVATE cppup_core)
 
 # Install
 install(TARGETS cppup RUNTIME DESTINATION bin)

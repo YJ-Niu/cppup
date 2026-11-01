@@ -45,7 +45,7 @@ Args parse(int argc, char** argv) {
 }
 
 void print_version() {
-  std::cout << "cppup 0.1.0\n";
+  std::cout << "cppup 0.2.0\n";
 }
 
 void print_help(std::string_view program) {

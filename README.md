@@ -11,7 +11,7 @@ Inspired by `cargo`, `npm` and `go`, but stays out of the way: it just scaffolds
 - `cppup bundle` — package the app with non-system runtime dependencies
 - `cppup run` — run the executable
 - `cppup go` — build **and** run in one step
-- `cppup clean` — remove the `build/` directory
+- `cppup clean` — remove build output and generated module PCM files
 - `cppup doctor` — check that Clang, CMake and Ninja are installed
 - Templates are **embedded** in the binary (no external template files needed)
 
@@ -53,11 +53,24 @@ cppup go
 ```
 MyApp/
 ├── CMakeLists.txt
+├── .clangd
+├── .vscode/
+│   └── launch.json
+├── modules/
+│   └── .gitkeep
 ├── src/
 │   └── main.cpp
 ├── .gitignore
 └── README.md
 ```
+
+## Architecture
+
+- `cppup_core` contains project operations, toolchain detection, templates, and utilities.
+- `cppup` is the CLI frontend and links against `cppup_core`.
+- A future GUI should be a separate executable linking the same core library; GUI dependencies should stay out of `cppup_core`.
+
+For a full cross-platform desktop app, **Qt 6 Widgets** is the recommended starting point: mature controls, strong CMake integration, and broad platform support. Keep it as an optional GUI target because Qt has a larger dependency footprint and LGPL/commercial licensing considerations. **Dear ImGui** is a better fit for an internal diagnostics panel or developer tool than a conventional end-user desktop app.
 
 ## Templates
 

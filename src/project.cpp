@@ -448,16 +448,31 @@ bool go(const fs::path& root, bool release) {
 
 bool clean(const fs::path& root) {
   fs::path bdir = build_dir(root);
-  if (!fs::exists(bdir)) {
-    util::info("nothing to clean (no build/ directory)");
-    return true;
-  }
   try {
-    fs::remove_all(bdir);
-    util::success("Removed " + bdir.string());
+    bool removed = false;
+    if (fs::exists(bdir)) {
+      fs::remove_all(bdir);
+      removed = true;
+    }
+
+    const fs::path modules_dir = root / "modules";
+    if (fs::is_directory(modules_dir)) {
+      for (const auto& entry : fs::directory_iterator(modules_dir)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".pcm") {
+          fs::remove(entry.path());
+          removed = true;
+        }
+      }
+    }
+
+    if (!removed) {
+      util::info("nothing to clean (no build/ or module PCM files)");
+      return true;
+    }
+    util::success("Removed build artifacts and module PCM files");
     return true;
   } catch (const std::exception& e) {
-    util::error(std::string("failed to remove build dir: ") + e.what());
+    util::error(std::string("failed to clean build artifacts: ") + e.what());
     return false;
   }
 }

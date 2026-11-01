@@ -61,6 +61,7 @@ out/
 *.exe
 *.dll
 *.pdb
+*.pcm
 
 # IDE
 .idea/
@@ -75,7 +76,11 @@ out/
 )";
 
 const char* CLANGD_CONFIG = R"(CompileFlags:
-  Add: [-std=c++23]
+  Add:
+    - -std=c++23
+    - -stdlib=libc++
+    - -fprebuilt-module-path=modules
+    - -Wno-reserved-module-identifier
   CompilationDatabase: build
 )";
 
@@ -184,12 +189,45 @@ add_executable({{NAME}} src/main.cpp)
 target_sources({{NAME}}
   PRIVATE
     FILE_SET CXX_MODULES FILES
-      src/app.math.cppm
-      src/app.service.cppm
+    modules/app.math.cppm
+    modules/app.service.cppm
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   target_compile_options({{NAME}} PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_custom_target(copy_module_bmis ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/modules"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/modules"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_BINARY_DIR}/CMakeFiles/{{NAME}}.dir/app.math.pcm"
+      "${CMAKE_SOURCE_DIR}/modules/app.math.pcm"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_BINARY_DIR}/CMakeFiles/{{NAME}}.dir/app.service.pcm"
+      "${CMAKE_SOURCE_DIR}/modules/app.service.pcm"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_BINARY_DIR}/CMakeFiles/@cmake_cxx_std.dir/std.pcm"
+      "${CMAKE_SOURCE_DIR}/modules/std.pcm"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_BINARY_DIR}/CMakeFiles/@cmake_cxx_std.dir/std.compat.pcm"
+      "${CMAKE_SOURCE_DIR}/modules/std.compat.pcm"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_SOURCE_DIR}/modules/app.math.pcm"
+      "${CMAKE_BINARY_DIR}/modules/app.math.pcm"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_SOURCE_DIR}/modules/app.service.pcm"
+      "${CMAKE_BINARY_DIR}/modules/app.service.pcm"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_SOURCE_DIR}/modules/std.pcm"
+      "${CMAKE_BINARY_DIR}/modules/std.pcm"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${CMAKE_SOURCE_DIR}/modules/std.compat.pcm"
+      "${CMAKE_BINARY_DIR}/modules/std.compat.pcm"
+    DEPENDS {{NAME}}
+    VERBATIM
+  )
 endif()
 )";
 
@@ -239,6 +277,13 @@ the C++ language mode. Recent Clang with libc++, GCC 14 or newer with libstdc++,
 or a recent Visual Studio toolset may work; verify your toolchain's module
 support if configuration or compilation fails.
 
+## Modules and PCM files
+
+Module interface sources live in `modules/*.cppm`. With Clang, CMake copies
+the generated `std` and application PCM files into `modules/` and `build/modules/`
+so clangd can load them. `cppup clean` removes generated PCM files but preserves
+the module sources.
+
 ## Build and run
 
 ```bash
@@ -265,17 +310,21 @@ std::vector<FileEntry> generate(std::string_view template_name,
   if (template_name == "basic" || template_name.empty()) {
     files.push_back({"CMakeLists.txt", fill(BASIC_CMAKE, name)});
     files.push_back({"src/main.cpp",   fill(BASIC_MAIN, name)});
+    files.push_back({"modules/.gitkeep", ""});
     files.push_back({".gitignore",     std::string(BASIC_GITIGNORE)});
     files.push_back({"README.md",      fill(BASIC_README, name)});
   } else if (template_name == "modules") {
     files.push_back({"CMakeLists.txt", fill(MODULES_CMAKE, name)});
     files.push_back({"src/main.cpp", fill(MODULES_MAIN, name)});
-    files.push_back({"src/app.math.cppm", std::string(MODULES_MATH)});
-    files.push_back({"src/app.service.cppm", std::string(MODULES_SERVICE)});
+    files.push_back({"modules/app.math.cppm", std::string(MODULES_MATH)});
+    files.push_back({"modules/app.service.cppm", std::string(MODULES_SERVICE)});
     files.push_back({".gitignore",     std::string(BASIC_GITIGNORE)});
     files.push_back({"README.md",      fill(MODULES_README, name)});
   } else {
     return {}; // unknown
+  }
+  if (template_name == "modules") {
+    files.push_back({"modules/.gitkeep", ""});
   }
   files.push_back({".clangd", std::string(CLANGD_CONFIG)});
   files.push_back({".vscode/launch.json", fill(LAUNCH_JSON, name)});
