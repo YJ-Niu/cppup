@@ -101,20 +101,28 @@ cppup go
 ```
 )";
 
-// ---------- modules template (placeholder for later) ----------
-const char* MODULES_CMAKE = R"(cmake_minimum_required(VERSION 3.28)
+// ---------- C++23 modules template ----------
+const char* MODULES_CMAKE = R"(cmake_minimum_required(VERSION 3.30)
+
+if(CMAKE_VERSION VERSION_LESS "3.31")
+  set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "d0edc3af-4c50-42ea-a356-e2862fe7a444")
+elseif(CMAKE_VERSION VERSION_LESS "3.32")
+  set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "3c375311-a3c9-4396-a187-3227ef642046")
+endif()
+
 project({{NAME}} VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_SCAN_FOR_MODULES ON)
+set(CMAKE_CXX_MODULE_STD ON)
 
-add_executable({{NAME}})
+add_executable({{NAME}} src/main.cpp)
 target_sources({{NAME}}
   PRIVATE
     FILE_SET CXX_MODULES FILES
-      src/main.cppm
+      src/app.math.cppm
+      src/app.service.cppm
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
@@ -122,14 +130,58 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
 endif()
 )";
 
-const char* MODULES_MAIN = R"(export module main;
+const char* MODULES_MAIN = R"(import std;
+import app.math;
+import app.service;
 
-import std;
-
-export int main() {
-  std::println("Hello from {{NAME}} (C++ Modules)!");
+int main() {
+  std::println("2 + 3 = {}", app::add(2, 3));
+  std::println("C++23 modules are working");
   return 0;
 }
+)";
+
+const char* MODULES_MATH = R"(export module app.math;
+
+export namespace app {
+int add(int lhs, int rhs) {
+  return lhs + rhs;
+}
+}
+)";
+
+const char* MODULES_SERVICE = R"(export module app.service;
+
+import app.math;
+
+export namespace app {
+int add_with_service(int lhs, int rhs) {
+  return add(lhs, rhs);
+}
+}
+)";
+
+const char* MODULES_README = R"(# {{NAME}}
+
+A C++23 modules project created with cppup.
+
+## Requirements
+
+- CMake 3.30 or newer
+- Ninja 1.11 or newer
+- A C++23 compiler and standard library with `import std;` support
+
+`import std;` support depends on the compiler and its standard library, not just
+the C++ language mode. Recent Clang with libc++, GCC 14 or newer with libstdc++,
+or a recent Visual Studio toolset may work; verify your toolchain's module
+support if configuration or compilation fails.
+
+## Build and run
+
+```bash
+cppup build
+cppup run
+```
 )";
 
 std::string fill(std::string_view tmpl, std::string_view name) {
@@ -154,9 +206,11 @@ std::vector<FileEntry> generate(std::string_view template_name,
     files.push_back({"README.md",      fill(BASIC_README, name)});
   } else if (template_name == "modules") {
     files.push_back({"CMakeLists.txt", fill(MODULES_CMAKE, name)});
-    files.push_back({"src/main.cppm",  fill(MODULES_MAIN, name)});
+    files.push_back({"src/main.cpp", fill(MODULES_MAIN, name)});
+    files.push_back({"src/app.math.cppm", std::string(MODULES_MATH)});
+    files.push_back({"src/app.service.cppm", std::string(MODULES_SERVICE)});
     files.push_back({".gitignore",     std::string(BASIC_GITIGNORE)});
-    files.push_back({"README.md",      fill(BASIC_README, name)});
+    files.push_back({"README.md",      fill(MODULES_README, name)});
   } else {
     return {}; // unknown
   }

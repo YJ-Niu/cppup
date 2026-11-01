@@ -64,13 +64,13 @@ MyApp/
 | Name     | Description                          |
 |----------|--------------------------------------|
 | `basic`  | Classic C++23 executable (default)   |
-| `modules`| C++23 modules (`import std;`)        |
+| `modules`| C++23 modules (`import std;`, `app.math`, `app.service`) |
 
 ```bash
 cppup init Foo -t modules
 ```
 
-> Note: the `modules` template requires a recent Clang + CMake ≥ 3.28 and working `import std` support. The `basic` template is the recommended starting point.
+> Note: the `modules` template requires CMake ≥ 3.30, Ninja ≥ 1.11, and a compiler/standard library that provides `import std;`. The `basic` template only requires CMake ≥ 3.20.
 
 ## Requirements
 
@@ -83,7 +83,7 @@ Run `cppup doctor` to verify.
 ## Roadmap
 
 - [x] Basic C++23 project creation & build
-- [ ] Better modules template (once `import std` is stable)
+- [x] C++23 modules template (`import std`, `app.math`, `app.service`)
 - [ ] GUI template
 - [ ] `cppup test`
 - [ ] `cppup add` (dependency helpers)
