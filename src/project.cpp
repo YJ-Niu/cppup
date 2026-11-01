@@ -4,6 +4,8 @@
 #include "util.hpp"
 
 #include <cctype>
+#include <chrono>
+#include <fstream>
 #include <iostream>
 
 namespace project {
@@ -32,6 +34,48 @@ bool cache_is_foreign(const fs::path& bdir) {
   auto a = fs::weakly_canonical(fs::path(recorded), ec);
   auto b = fs::weakly_canonical(bdir, ec);
   return a.empty() || b.empty() || a != b;
+}
+
+fs::path find_executable(const fs::path& root) {
+  std::string exe_name = root.filename().string();
+  if (exe_name.empty() || exe_name == "." || exe_name == "/") {
+    exe_name = "a.out";
+  }
+
+  fs::path exe = build_dir(root) / exe_name;
+#ifdef _WIN32
+  exe += ".exe";
+#endif
+  if (fs::exists(exe)) return exe;
+
+  try {
+    for (const auto& entry : fs::directory_iterator(build_dir(root))) {
+      if (!entry.is_regular_file()) continue;
+      const auto path = entry.path();
+#ifdef _WIN32
+      if (path.extension() == ".exe") return path;
+#else
+      auto perms = fs::status(path).permissions();
+      if ((perms & fs::perms::owner_exec) != fs::perms::none) return path;
+#endif
+    }
+  } catch (...) {}
+  return {};
+}
+
+std::string cmake_literal(const fs::path& path) {
+  const std::string value = path.generic_string();
+  std::string equals;
+  while (value.find("]" + equals + "]") != std::string::npos) {
+    equals += "=";
+  }
+  return "[" + equals + "[" + value + "]" + equals + "]";
+}
+
+bool write_text(const fs::path& path, const std::string& text) {
+  std::ofstream out(path, std::ios::binary);
+  out << text;
+  return out.good();
 }
 
 } // namespace
@@ -194,35 +238,10 @@ bool build(const fs::path& root, bool release, bool verbose) {
 }
 
 bool run(const fs::path& root, const std::vector<std::string>& args) {
-  std::string exe_name = root.filename().string();
-  if (exe_name.empty() || exe_name == "." || exe_name == "/") {
-    exe_name = "a.out";
-  }
-
-  fs::path exe = build_dir(root) / exe_name;
-#ifdef _WIN32
-  exe += ".exe";
-#endif
-
-  if (!fs::exists(exe)) {
-    bool found = false;
-    try {
-      for (auto& entry : fs::directory_iterator(build_dir(root))) {
-        if (entry.is_regular_file()) {
-          auto p = entry.path();
-          auto perms = fs::status(p).permissions();
-          if ((perms & fs::perms::owner_exec) != fs::perms::none) {
-            exe = p;
-            found = true;
-            break;
-          }
-        }
-      }
-    } catch (...) {}
-    if (!found) {
-      util::error("executable not found. Did you build? (cppup build)");
-      return false;
-    }
+  fs::path exe = find_executable(root);
+  if (exe.empty()) {
+    util::error("executable not found. Did you build? (cppup build)");
+    return false;
   }
 
   std::vector<std::string> cmd = {exe.string()};
@@ -230,6 +249,195 @@ bool run(const fs::path& root, const std::vector<std::string>& args) {
 
   auto r = util::run(cmd, root, false, false);
   return r.exit_code == 0;
+}
+
+bool bundle(const fs::path& root, bool release, bool force, bool verbose) {
+  if (!build(root, release, verbose)) return false;
+
+  const fs::path exe = find_executable(root);
+  if (exe.empty()) {
+    util::error("executable not found after build");
+    return false;
+  }
+
+  std::string app_name = root.filename().string();
+  if (app_name.empty() || app_name == "." || app_name == "/") {
+    app_name = "App";
+  }
+
+  const fs::path output_dir = root / "dist";
+#ifdef __APPLE__
+  const fs::path output = output_dir / (app_name + ".app");
+#else
+  const fs::path output = output_dir / app_name;
+#endif
+  const fs::path marker = output / ".cppup-bundle";
+  if (fs::exists(output)) {
+    if (!force && !fs::exists(marker)) {
+      util::error("bundle destination already exists: " + output.string() +
+                  " (use --force to replace it)");
+      return false;
+    }
+  }
+
+  fs::path stage;
+  try {
+    fs::create_directories(output_dir);
+    const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
+#ifdef __APPLE__
+    stage = output_dir / ("." + app_name + "-" + std::to_string(nonce) + ".app");
+#else
+    stage = output_dir / ("." + app_name + "-" + std::to_string(nonce));
+#endif
+    const fs::path work = build_dir(root) / ".cppup-bundle-work";
+    fs::create_directories(work);
+
+#ifdef _WIN32
+    const char* cmake_platform = "Windows";
+#elif __APPLE__
+    const char* cmake_platform = "Darwin";
+#elif __linux__
+    const char* cmake_platform = "Linux";
+#else
+    const char* cmake_platform = "Unknown";
+#endif
+
+    const fs::path script = work / "bundle.cmake";
+    const std::string script_text =
+      "set(CMAKE_SYSTEM_NAME " + cmake_literal(cmake_platform) + ")\n"
+      "if(CMAKE_SYSTEM_NAME STREQUAL \"Linux\")\n"
+      "  set(UNIX TRUE)\n"
+      "elseif(CMAKE_SYSTEM_NAME STREQUAL \"Darwin\")\n"
+      "  set(UNIX TRUE)\n"
+      "  set(APPLE TRUE)\n"
+      "  find_program(CMAKE_INSTALL_NAME_TOOL install_name_tool REQUIRED)\n"
+      "elseif(CMAKE_SYSTEM_NAME STREQUAL \"Windows\")\n"
+      "  set(WIN32 TRUE)\n"
+      "endif()\n"
+      "include(BundleUtilities)\n"
+        "set(BU_COPY_FULL_FRAMEWORK_CONTENTS ON)\n"
+        "set(_source " + cmake_literal(exe) + ")\n"
+        "set(_stage " + cmake_literal(stage) + ")\n"
+        "set(_dirs " + cmake_literal(exe.parent_path()) + ")\n"
+        "file(MAKE_DIRECTORY \"${_stage}\")\n"
+        "if(APPLE)\n"
+        "  file(MAKE_DIRECTORY \"${_stage}/Contents/MacOS\")\n"
+        "  file(COPY \"${_source}\" DESTINATION \"${_stage}/Contents/MacOS\")\n"
+        "  get_filename_component(_exe_name \"${_source}\" NAME)\n"
+        "  file(WRITE \"${_stage}/Contents/Info.plist\" "
+        "\"<?xml version=\\\"1.0\\\" encoding=\\\"UTF-8\\\"?>\\n"
+        "<!DOCTYPE plist PUBLIC \\\"-//Apple//DTD PLIST 1.0//EN\\\" "
+        "\\\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\\\">\\n"
+        "<plist version=\\\"1.0\\\"><dict>"
+        "<key>CFBundleExecutable</key><string>${_exe_name}</string>"
+        "<key>CFBundleIdentifier</key><string>local.cppup.app</string>"
+        "<key>CFBundlePackageType</key><string>APPL</string>"
+        "</dict></plist>\\n\")\n"
+        "  set(_app \"${_stage}/Contents/MacOS/${_exe_name}\")\n"
+        "else()\n"
+        "  file(COPY \"${_source}\" DESTINATION \"${_stage}\")\n"
+        "  get_filename_component(_exe_name \"${_source}\" NAME)\n"
+        "  set(_app \"${_stage}/${_exe_name}\")\n"
+        "endif()\n"
+        "function(gp_resolved_file_type_override resolved_file type_var)\n"
+        "  get_filename_component(_name \"${resolved_file}\" NAME)\n"
+        "  get_filename_component(_resolved_dir \"${resolved_file}\" DIRECTORY)\n"
+        "  if(CMAKE_SYSTEM_NAME STREQUAL \"Linux\" AND _name MATCHES "
+        "\"^lib(stdc[+][+]|gcc_s|atomic|gomp|quadmath|omp|c[+][+]|c[+][+]abi|unwind)\\.so\")\n"
+        "    if(_resolved_dir STREQUAL _stage)\n"
+        "      set(${type_var} local PARENT_SCOPE)\n"
+        "    else()\n"
+        "      set(${type_var} other PARENT_SCOPE)\n"
+        "    endif()\n"
+        "  elseif(WIN32 AND _name MATCHES "
+        "\"^(msvcp|msvcr|vcruntime|concrt|libstdc[+][+]-6|libgcc_s_.*|libwinpthread-1)"
+        "[^/]*\\.dll$\")\n"
+        "    if(_resolved_dir STREQUAL _stage)\n"
+        "      set(${type_var} local PARENT_SCOPE)\n"
+        "    else()\n"
+        "      set(${type_var} other PARENT_SCOPE)\n"
+        "    endif()\n"
+        "  endif()\n"
+        "endfunction()\n"
+        "fixup_bundle(\"${_app}\" \"\" \"${_dirs}\")\n"
+        "file(WRITE \"${_stage}/.cppup-bundle\" \"cppup\\n\")\n";
+
+    if (!write_text(script, script_text)) {
+      util::error("failed to write bundle script");
+      return false;
+    }
+
+    const fs::path cmake_lists = work / "CMakeLists.txt";
+    if (!write_text(cmake_lists,
+                    "cmake_minimum_required(VERSION 3.20)\n"
+                    "project(cppup_bundle NONE)\n"
+                    "install(SCRIPT " + cmake_literal(script) + ")\n")) {
+      util::error("failed to write bundle project");
+      return false;
+    }
+
+    auto toolchain = env::detect();
+    if (!toolchain.cmake.found) {
+      util::error("CMake not found. Run 'cppup doctor' for details.");
+      return false;
+    }
+    auto configure = util::run({toolchain.cmake.path, "-S", work.string(), "-B",
+                                (work / "build").string()}, {}, false, !verbose);
+    if (configure.exit_code != 0) {
+      util::error("failed to configure bundle staging");
+      return false;
+    }
+    auto install = util::run({toolchain.cmake.path, "--install", (work / "build").string(),
+                              "--prefix", stage.string()}, {}, false, !verbose);
+    if (install.exit_code != 0) {
+      std::error_code ec;
+      fs::remove_all(stage, ec);
+      util::error("failed to collect runtime dependencies");
+      return false;
+    }
+
+#ifdef __linux__
+    fs::rename(stage / exe.filename(), stage / (exe.filename().string() + ".bin"));
+    std::ofstream launcher(stage / exe.filename());
+    launcher << "#!/bin/sh\n"
+                "APP_DIR=$(CDPATH= cd -- \"$(dirname -- \"$0\")\" && pwd)\n"
+                "APP_NAME=${0##*/}\n"
+                "export LD_LIBRARY_PATH=\"$APP_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\"\n"
+                "exec \"$APP_DIR/$APP_NAME.bin\" \"$@\"\n";
+    if (!launcher.good()) {
+      std::error_code ec;
+      fs::remove_all(stage, ec);
+      util::error("failed to write Linux bundle launcher");
+      return false;
+    }
+    launcher.close();
+    fs::permissions(stage / exe.filename(),
+                    fs::perms::owner_read | fs::perms::owner_write |
+                        fs::perms::owner_exec | fs::perms::group_read |
+                        fs::perms::group_exec | fs::perms::others_read |
+                        fs::perms::others_exec,
+                    fs::perm_options::replace);
+#endif
+
+    if (fs::exists(output)) {
+      std::error_code ec;
+      fs::remove_all(output, ec);
+      if (ec) {
+        std::error_code cleanup_ec;
+        fs::remove_all(stage, cleanup_ec);
+        util::error("failed to replace existing bundle: " + ec.message());
+        return false;
+      }
+    }
+    fs::rename(stage, output);
+    util::success("Bundle created at " + output.string());
+    return true;
+  } catch (const std::exception& e) {
+    std::error_code ec;
+    if (!stage.empty()) fs::remove_all(stage, ec);
+    util::error(std::string("bundle failed: ") + e.what());
+    return false;
+  }
 }
 
 bool go(const fs::path& root, bool release) {

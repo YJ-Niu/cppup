@@ -55,6 +55,7 @@ void print_help(std::string_view program) {
             << util::bold("Commands:\n")
             << "  init <name>     Create a new C++23 project\n"
             << "  build           Configure + build with CMake + Ninja\n"
+            << "  bundle          Build a distributable app with runtime dependencies\n"
             << "  run             Run the built executable\n"
             << "  go              Build then run (one-shot)\n"
             << "  clean           Remove the build/ directory\n"
@@ -65,7 +66,7 @@ void print_help(std::string_view program) {
             << util::bold("Options:\n")
             << "  -v, --version           Show version\n"
             << "  -t, --template <name>   Template for init (default: basic)\n"
-            << "  -f, --force             Overwrite existing directory on init\n"
+            << "  -f, --force             Replace existing output (init or bundle)\n"
             << "  -r, --release           Release build (default: Debug)\n"
             << "      --verbose           More output during build\n"
             << "  -h, --help              Show help\n\n"
@@ -123,6 +124,9 @@ int dispatch(const Args& args) {
 
   if (args.command == "build") {
     return project::build(*root, args.release, args.verbose) ? 0 : 1;
+  }
+  if (args.command == "bundle") {
+    return project::bundle(*root, args.release, args.force, args.verbose) ? 0 : 1;
   }
   if (args.command == "run") {
     return project::run(*root, args.positional) ? 0 : 1;

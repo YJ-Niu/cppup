@@ -29,6 +29,9 @@ fs::path build_dir(const fs::path& root);
 // Configure + build with CMake + Ninja
 bool build(const fs::path& root, bool release = false, bool verbose = false);
 
+bool bundle(const fs::path& root, bool release = false, bool force = false,
+            bool verbose = false);
+
 // Run the executable (assumes already built)
 bool run(const fs::path& root, const std::vector<std::string>& args = {});
 

@@ -31,6 +31,26 @@ cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=... -DCMAKE_CXX_COMPILER=clang++
 cmake --build build --parallel
 ```
 
+### `cppup bundle [--release] [--force]`
+
+Build the current project and collect its non-system runtime dependencies into
+`dist/<project>/` (macOS: `dist/<project>.app/Contents/Frameworks`). CMake's
+`BundleUtilities` handles dependency discovery and platform-specific fixups.
+Common OS libraries remain external; C++ runtime libraries and third-party
+libraries are included when they can be resolved by CMake.
+
+```bash
+cppup bundle
+cppup bundle --release
+cppup bundle --release --force
+```
+
+An existing bundle created by cppup can be replaced on the next run. Use
+`--force` to replace another existing destination. A single-file `--file` mode
+is not provided: reliably embedding arbitrary dynamic libraries into one file
+is platform- and library-specific. `--standalone` is also omitted because
+`bundle` already produces a self-contained app directory by default.
+
 ### `cppup run [args...]`
 
 Run the built executable. Extra arguments are passed through.

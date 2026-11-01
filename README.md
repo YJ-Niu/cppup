@@ -8,6 +8,7 @@ Inspired by `cargo`, `npm` and `go`, but stays out of the way: it just scaffolds
 
 - `cppup init MyApp` — create a ready-to-build C++23 project
 - `cppup build` — configure + build with **CMake + Ninja + Clang**
+- `cppup bundle` — package the app with non-system runtime dependencies
 - `cppup run` — run the executable
 - `cppup go` — build **and** run in one step
 - `cppup clean` — remove the `build/` directory
@@ -83,11 +84,11 @@ Run `cppup doctor` to verify.
 
 - [x] Basic C++23 project creation & build
 - [ ] Better modules template (once `import std` is stable)
-- [ ] Qt / GUI template
+- [ ] GUI template
 - [ ] `cppup test`
 - [ ] `cppup add` (dependency helpers)
 - [ ] Windows first-class support
 
 ## License
 
-MIT
+Apache License 2.0
