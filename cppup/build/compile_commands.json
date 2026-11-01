@@ -1,0 +1,38 @@
+[
+{
+  "directory": "/Users/user/Downloads/cppup/build",
+  "command": "/opt/homebrew/opt/llvm/bin/clang++ -I/Users/user/Downloads/cppup/src -O3 -DNDEBUG -std=c++23 -arch arm64 -o CMakeFiles/cppup.dir/src/main.cpp.o -c /Users/user/Downloads/cppup/src/main.cpp",
+  "file": "/Users/user/Downloads/cppup/src/main.cpp",
+  "output": "/Users/user/Downloads/cppup/build/CMakeFiles/cppup.dir/src/main.cpp.o"
+},
+{
+  "directory": "/Users/user/Downloads/cppup/build",
+  "command": "/opt/homebrew/opt/llvm/bin/clang++ -I/Users/user/Downloads/cppup/src -O3 -DNDEBUG -std=c++23 -arch arm64 -o CMakeFiles/cppup.dir/src/commands.cpp.o -c /Users/user/Downloads/cppup/src/commands.cpp",
+  "file": "/Users/user/Downloads/cppup/src/commands.cpp",
+  "output": "/Users/user/Downloads/cppup/build/CMakeFiles/cppup.dir/src/commands.cpp.o"
+},
+{
+  "directory": "/Users/user/Downloads/cppup/build",
+  "command": "/opt/homebrew/opt/llvm/bin/clang++ -I/Users/user/Downloads/cppup/src -O3 -DNDEBUG -std=c++23 -arch arm64 -o CMakeFiles/cppup.dir/src/project.cpp.o -c /Users/user/Downloads/cppup/src/project.cpp",
+  "file": "/Users/user/Downloads/cppup/src/project.cpp",
+  "output": "/Users/user/Downloads/cppup/build/CMakeFiles/cppup.dir/src/project.cpp.o"
+},
+{
+  "directory": "/Users/user/Downloads/cppup/build",
+  "command": "/opt/homebrew/opt/llvm/bin/clang++ -I/Users/user/Downloads/cppup/src -O3 -DNDEBUG -std=c++23 -arch arm64 -o CMakeFiles/cppup.dir/src/env.cpp.o -c /Users/user/Downloads/cppup/src/env.cpp",
+  "file": "/Users/user/Downloads/cppup/src/env.cpp",
+  "output": "/Users/user/Downloads/cppup/build/CMakeFiles/cppup.dir/src/env.cpp.o"
+},
+{
+  "directory": "/Users/user/Downloads/cppup/build",
+  "command": "/opt/homebrew/opt/llvm/bin/clang++ -I/Users/user/Downloads/cppup/src -O3 -DNDEBUG -std=c++23 -arch arm64 -o CMakeFiles/cppup.dir/src/templates.cpp.o -c /Users/user/Downloads/cppup/src/templates.cpp",
+  "file": "/Users/user/Downloads/cppup/src/templates.cpp",
+  "output": "/Users/user/Downloads/cppup/build/CMakeFiles/cppup.dir/src/templates.cpp.o"
+},
+{
+  "directory": "/Users/user/Downloads/cppup/build",
+  "command": "/opt/homebrew/opt/llvm/bin/clang++ -I/Users/user/Downloads/cppup/src -O3 -DNDEBUG -std=c++23 -arch arm64 -o CMakeFiles/cppup.dir/src/util.cpp.o -c /Users/user/Downloads/cppup/src/util.cpp",
+  "file": "/Users/user/Downloads/cppup/src/util.cpp",
+  "output": "/Users/user/Downloads/cppup/build/CMakeFiles/cppup.dir/src/util.cpp.o"
+}
+]

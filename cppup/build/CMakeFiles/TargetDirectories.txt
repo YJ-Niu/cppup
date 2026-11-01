@@ -1,0 +1,7 @@
+/Users/user/Downloads/cppup/build/CMakeFiles/cppup.dir
+/Users/user/Downloads/cppup/build/CMakeFiles/edit_cache.dir
+/Users/user/Downloads/cppup/build/CMakeFiles/rebuild_cache.dir
+/Users/user/Downloads/cppup/build/CMakeFiles/list_install_components.dir
+/Users/user/Downloads/cppup/build/CMakeFiles/install.dir
+/Users/user/Downloads/cppup/build/CMakeFiles/install/local.dir
+/Users/user/Downloads/cppup/build/CMakeFiles/install/strip.dir
