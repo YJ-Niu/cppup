@@ -52,11 +52,9 @@ bool cache_uses_different_compiler(const fs::path& bdir,
   const fs::path cached = util::trim(text->substr(
       pos, end == std::string::npos ? std::string::npos : end - pos));
 
-  std::error_code ec;
-  const auto cached_path = fs::weakly_canonical(cached, ec);
-  const auto requested_path = fs::weakly_canonical(compiler, ec);
-  return cached_path.empty() || requested_path.empty() ||
-         cached_path != requested_path;
+  const auto cached_path = fs::absolute(cached).lexically_normal();
+  const auto requested_path = fs::absolute(compiler).lexically_normal();
+  return cached_path != requested_path;
 }
 
 bool cache_uses_different_cxx_flags(const fs::path& bdir,

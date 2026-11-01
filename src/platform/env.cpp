@@ -194,10 +194,8 @@ ToolInfo check_tool(std::string_view name, const std::string& brew_prefix, HostO
 
 ToolInfo check_tool_path(const fs::path& path) {
   ToolInfo t;
-  std::error_code ec;
   if (!is_executable(path)) return t;
-  auto resolved = fs::canonical(path, ec);
-  t.path = (ec ? path : resolved).string();
+  t.path = path.string();
   t.found = true;
   if (auto version = util::command_version(t.path)) t.version = *version;
   return t;
