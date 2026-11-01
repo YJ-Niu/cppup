@@ -14,17 +14,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Default to Ninja
-if(NOT CMAKE_GENERATOR)
-  find_program(NINJA_EXECUTABLE ninja)
-  if(NINJA_EXECUTABLE)
-    set(CMAKE_GENERATOR "Ninja" CACHE INTERNAL "" FORCE)
-  endif()
-endif()
-
 add_executable({{NAME}}
   src/main.cpp
 )
+target_compile_features({{NAME}} PRIVATE cxx_std_23)
+set_target_properties({{NAME}} PROPERTIES CXX_EXTENSIONS OFF)
 
 # Optional: stricter warnings
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
@@ -185,6 +179,41 @@ else()
   message(FATAL_ERROR "Update the CMAKE_EXPERIMENTAL_CXX_IMPORT_STD gate for this CMake version")
 endif()
 
+if(NOT CMAKE_CXX_COMPILER)
+  if(DEFINED ENV{CXX})
+    set(CMAKE_CXX_COMPILER "$ENV{CXX}" CACHE FILEPATH "C++ compiler" FORCE)
+  else()
+    find_program(CPPUP_CLANGXX NAMES clang++ clang++-23 clang++-22 clang++-21
+      PATHS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin)
+    if(CPPUP_CLANGXX)
+      set(CMAKE_CXX_COMPILER "${CPPUP_CLANGXX}" CACHE FILEPATH "C++ compiler" FORCE)
+    endif()
+  endif()
+endif()
+
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "4.2" AND NOT CMAKE_CXX_STDLIB_MODULES_JSON)
+  execute_process(
+    COMMAND "${CMAKE_CXX_COMPILER}" -stdlib=libc++ -print-file-name=libc++.modules.json
+    OUTPUT_VARIABLE CPPUP_LIBCXX_MODULES_JSON
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if(NOT EXISTS "${CPPUP_LIBCXX_MODULES_JSON}")
+    get_filename_component(CPPUP_CLANG_BIN_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    get_filename_component(CPPUP_LLVM_PREFIX "${CPPUP_CLANG_BIN_DIR}/.." ABSOLUTE)
+    file(GLOB_RECURSE CPPUP_LIBCXX_MODULE_CANDIDATES LIST_DIRECTORIES FALSE
+      "${CPPUP_LLVM_PREFIX}/lib/libc++.modules.json"
+      "${CPPUP_LLVM_PREFIX}/lib/clang/*/libc++.modules.json"
+      "${CPPUP_LLVM_PREFIX}/share/libc++/*/libc++.modules.json"
+    )
+    if(CPPUP_LIBCXX_MODULE_CANDIDATES)
+      list(GET CPPUP_LIBCXX_MODULE_CANDIDATES 0 CPPUP_LIBCXX_MODULES_JSON)
+    else()
+      message(FATAL_ERROR "libc++.modules.json not found under ${CPPUP_LLVM_PREFIX}")
+    endif()
+  endif()
+  set(CMAKE_CXX_STDLIB_MODULES_JSON "${CPPUP_LIBCXX_MODULES_JSON}" CACHE FILEPATH "libc++ modules metadata" FORCE)
+endif()
+
 set(CMAKE_CXX_FLAGS_INIT "${CMAKE_CXX_FLAGS_INIT} -stdlib=libc++ -Wno-reserved-module-identifier")
 set(CMAKE_EXE_LINKER_FLAGS_INIT "${CMAKE_EXE_LINKER_FLAGS_INIT} -stdlib=libc++")
 
@@ -197,6 +226,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_MODULE_STD ON)
 
 add_executable({{NAME}} src/main.cpp)
+target_compile_features({{NAME}} PRIVATE cxx_std_23)
 target_sources({{NAME}}
   PRIVATE
     FILE_SET CXX_MODULES FILES
@@ -209,7 +239,6 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  target_compile_options({{NAME}} PRIVATE -Wno-reserved-module-identifier)
   add_custom_target(copy_module_bmis ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/modules"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/modules"
