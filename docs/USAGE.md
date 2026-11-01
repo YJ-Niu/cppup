@@ -27,9 +27,23 @@ cppup add ../shared/math.cppm
 cppup build
 ```
 
-The source must contain an `export module name;` declaration. cppup does not
-download or distribute PCM files because they depend on the local compiler,
-standard library, and build flags.
+The source must contain an `export module name;` declaration. cppup resolves
+its local named-module imports recursively and copies the required `.cppm`
+sources into `modules/`. `std` and `std.compat` are supplied by the toolchain.
+
+### `cppup update`
+
+Rescan all `.cppm` files already in `modules/`, copy any local imported module
+sources into that directory, and regenerate `modules/modules.cmake`.
+
+```bash
+cppup update
+cppup build
+```
+
+PCM files are compiler-specific build artifacts; `cppup update` does not add
+them to the CMake source list. `cppup build` generates them for the active
+compiler and `cppup clean` removes them.
 
 ### `cppup build [-r]`
 

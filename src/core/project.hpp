@@ -20,8 +20,11 @@ struct Options {
 // Create a new project. Returns true on success.
 bool init(const Options& opts);
 
-// Add a local C++ module interface to a modules-template project.
+// Add a local C++ module interface and its referenced module sources.
 bool add_module(const fs::path& root, const fs::path& source);
+
+// Resolve imports for all module interfaces in modules/ and regenerate the manifest.
+bool update_modules(const fs::path& root);
 
 // Find project root by walking up looking for CMakeLists.txt
 std::optional<fs::path> find_root(const fs::path& start = fs::current_path());

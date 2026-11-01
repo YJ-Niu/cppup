@@ -8,6 +8,7 @@ Inspired by `cargo`, `npm` and `go`, but stays out of the way: it just scaffolds
 
 - `cppup init MyApp` — create a ready-to-build C++23 project
 - `cppup add path/to/module.cppm` — add a local module to a `modules` project
+- `cppup update` — resolve module imports and regenerate the CMake module list
 - `cppup build` — configure + build with **CMake + Ninja + Clang**
 - `cppup bundle` — package the app with non-system runtime dependencies
 - `cppup run` — run the executable
@@ -107,7 +108,7 @@ Run `cppup doctor` to verify.
 - [x] C++23 modules template (`import std`, `app.math`, `app.service`)
 - [ ] GUI template
 - [ ] `cppup test`
-- [x] `cppup add` for local C++ module interfaces
+- [x] `cppup add` and `cppup update` for local C++ module dependencies
 - [ ] Windows first-class support
 
 ## License
