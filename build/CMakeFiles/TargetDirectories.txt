@@ -1,0 +1,9 @@
+/Users/user/Downloads/cppup-main/build/CMakeFiles/cppup_core.dir
+/Users/user/Downloads/cppup-main/build/CMakeFiles/cppup.dir
+/Users/user/Downloads/cppup-main/build/CMakeFiles/edit_cache.dir
+/Users/user/Downloads/cppup-main/build/CMakeFiles/rebuild_cache.dir
+/Users/user/Downloads/cppup-main/build/CMakeFiles/list_install_components.dir
+/Users/user/Downloads/cppup-main/build/CMakeFiles/install.dir
+/Users/user/Downloads/cppup-main/build/CMakeFiles/install/local.dir
+/Users/user/Downloads/cppup-main/build/CMakeFiles/install/strip.dir
+/Users/user/Downloads/cppup-main/build/CMakeFiles/@cmake_cxx_std.dir

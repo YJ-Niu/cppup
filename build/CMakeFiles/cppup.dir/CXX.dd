@@ -1,0 +1,5 @@
+ninja_dyndep_version = 1.0
+build CMakeFiles/cppup.dir/src/app/main.cpp.o: dyndep
+
+build CMakeFiles/cppup.dir/src/cli/commands.cpp.o: dyndep
+

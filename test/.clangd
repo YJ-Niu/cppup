@@ -1,0 +1,7 @@
+CompileFlags:
+  Add:
+    - -std=c++23
+    - -stdlib=libc++
+    - -fprebuilt-module-path=modules
+    - -Wno-reserved-module-identifier
+  CompilationDatabase: build

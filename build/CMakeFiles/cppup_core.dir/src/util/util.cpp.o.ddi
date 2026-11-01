@@ -1,0 +1,9 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "CMakeFiles/cppup_core.dir/src/util/util.cpp.o"
+    }
+  ],
+  "version": 1
+}
