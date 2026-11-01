@@ -212,6 +212,14 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "4.2" AND NOT CMAKE_CXX_STDLIB_MODULES_JS
     endif()
   endif()
   set(CMAKE_CXX_STDLIB_MODULES_JSON "${CPPUP_LIBCXX_MODULES_JSON}" CACHE FILEPATH "libc++ modules metadata" FORCE)
+  get_filename_component(CPPUP_LLVM_PREFIX "${CPPUP_LIBCXX_MODULES_JSON}" DIRECTORY)
+  get_filename_component(CPPUP_LLVM_PREFIX "${CPPUP_LLVM_PREFIX}/.." ABSOLUTE)
+  foreach(_cppup_std_module IN ITEMS std.cppm std.compat.cppm)
+    set(_cppup_std_module_src "${CPPUP_LLVM_PREFIX}/share/libc++/v1/${_cppup_std_module}")
+    if(EXISTS "${_cppup_std_module_src}")
+      file(COPY "${_cppup_std_module_src}" DESTINATION "${CMAKE_SOURCE_DIR}/modules")
+    endif()
+  endforeach()
 endif()
 
 set(CMAKE_CXX_FLAGS_INIT "${CMAKE_CXX_FLAGS_INIT} -stdlib=libc++ -Wno-reserved-module-identifier")
@@ -257,6 +265,12 @@ const char* MODULES_CMAKE_LIST = R"(set(CPPUP_MODULE_SOURCES
   "${CMAKE_CURRENT_LIST_DIR}/app.math.cppm"
   "${CMAKE_CURRENT_LIST_DIR}/app.service.cppm"
 )
+
+foreach(_cppup_std_module IN ITEMS std.cppm std.compat.cppm)
+  if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/${_cppup_std_module}")
+    list(APPEND CPPUP_MODULE_SOURCES "${CMAKE_CURRENT_LIST_DIR}/${_cppup_std_module}")
+  endif()
+endforeach()
 )";
 
 const char* MODULES_COPY_BMIS = R"(set(_module_pcm_dirs
