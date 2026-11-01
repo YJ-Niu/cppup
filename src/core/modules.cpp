@@ -283,6 +283,3 @@ bool update_modules(const fs::path& root) {
 }
 
 } // namespace project
-```
-
-Potential problems: imported root's relative module path. Let's go through with actual flow and fix after tests. But first need add CLI update and CMake modules.cpp source. Then build immediate. Since project code added static. `module_declaration` regex repeated each function. Fine. Module source parser `regex` import and module declarations, `std` import ignore. For dependencies sibling external only direct. Project nested all scan. Recursion okay. manifest template generated with listing. README docs not updated yet. First make compile. Add CLI and Cmake and docs. Also Add command text update. Commands dispatch currently add. Add update after. Check line and patch. Let's apply. File Cmake source etc. Readme docs. Use apply patch current repo context. Need ensure apply v4 diff syntax works. We'll do. Also update add command's simple help text to recursive dependencies; help currently 
