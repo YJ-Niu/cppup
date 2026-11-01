@@ -10,7 +10,7 @@ const char* BASIC_CMAKE = R"(cmake_minimum_required(VERSION 3.20)
 
 # Optional: target CPU architecture on macOS (x86_64 or arm64).
 # Example: cmake -B build -DTARGET_ARCH=x86_64
-set(TARGET_ARCH "" CACHE STRING 'Target macOS architecture (x86_64, arm64)')
+set(TARGET_ARCH "" CACHE STRING "Target macOS architecture: x86_64 or arm64")
 if(APPLE AND TARGET_ARCH)
   set(CMAKE_OSX_ARCHITECTURES "${TARGET_ARCH}" CACHE STRING "macOS target architectures" FORCE)
 endif()
@@ -235,9 +235,9 @@ set(CMAKE_EXE_LINKER_FLAGS_INIT "${CMAKE_EXE_LINKER_FLAGS_INIT} -stdlib=libc++")
 
 # Optional: target CPU architecture on macOS (x86_64 or arm64).
 # Example: cmake -B build -DTARGET_ARCH=x86_64
-set(TARGET_ARCH "" CACHE STRING 'Target macOS architecture (x86_64, arm64)')
+set(TARGET_ARCH "" CACHE STRING "Target macOS architecture: x86_64 or arm64")
 if(APPLE AND TARGET_ARCH)
-  set(CMAKE_OSX_ARCHITECTURES "${TARGET_ARCH}" CACHE STRING 'macOS target architectures' FORCE)
+  set(CMAKE_OSX_ARCHITECTURES "${TARGET_ARCH}" CACHE STRING "macOS target architectures" FORCE)
 endif()
 
 project({{NAME}} VERSION 0.1.0 LANGUAGES CXX)
