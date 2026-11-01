@@ -1,3 +1,3 @@
 #pragma once
 
-#define CPPUP_VERSION "0.2.0"
+#define CPPUP_VERSION "0.3.0"
