@@ -192,9 +192,20 @@ ToolInfo check_tool(std::string_view name, const std::string& brew_prefix, HostO
   return t;
 }
 
+ToolInfo check_tool_path(const fs::path& path) {
+  ToolInfo t;
+  std::error_code ec;
+  if (!is_executable(path)) return t;
+  auto resolved = fs::canonical(path, ec);
+  t.path = (ec ? path : resolved).string();
+  t.found = true;
+  if (auto version = util::command_version(t.path)) t.version = *version;
+  return t;
+}
+
 } // namespace
 
-Environment detect() {
+Environment detect(bool prefer_homebrew_llvm) {
   Environment e;
   e.os = host_os();
   e.brew_prefix = detect_brew_prefix();
@@ -212,6 +223,13 @@ Environment detect() {
   if (!e.cxx.found && e.os == HostOs::Windows) {
     e.cxx = check_tool("clang++", e.brew_prefix, e.os);
     if (!e.cxx.found) e.cxx = check_tool("cl", e.brew_prefix, e.os);
+  }
+
+  if (prefer_homebrew_llvm && e.os == HostOs::MacOS && !e.brew_prefix.empty()) {
+    const fs::path brew_llvm = fs::path(e.brew_prefix) / "opt/llvm/bin/clang++";
+    if (auto tool = check_tool_path(brew_llvm); tool.found) {
+      e.cxx = std::move(tool);
+    }
   }
   return e;
 }

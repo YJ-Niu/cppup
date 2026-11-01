@@ -7,6 +7,7 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <regex>
 
 namespace project {
 
@@ -34,6 +35,131 @@ bool cache_is_foreign(const fs::path& bdir) {
   auto a = fs::weakly_canonical(fs::path(recorded), ec);
   auto b = fs::weakly_canonical(bdir, ec);
   return a.empty() || b.empty() || a != b;
+}
+
+bool cache_uses_different_compiler(const fs::path& bdir,
+                                   const fs::path& compiler) {
+  const fs::path cache = bdir / "CMakeCache.txt";
+  if (!fs::exists(cache)) return false;
+  auto text = util::read_file(cache);
+  if (!text) return true;
+
+  const std::string key = "CMAKE_CXX_COMPILER:FILEPATH=";
+  auto pos = text->find(key);
+  if (pos == std::string::npos) return false;
+  pos += key.size();
+  auto end = text->find('\n', pos);
+  const fs::path cached = util::trim(text->substr(
+      pos, end == std::string::npos ? std::string::npos : end - pos));
+
+  std::error_code ec;
+  const auto cached_path = fs::weakly_canonical(cached, ec);
+  const auto requested_path = fs::weakly_canonical(compiler, ec);
+  return cached_path.empty() || requested_path.empty() ||
+         cached_path != requested_path;
+}
+
+bool cache_uses_different_cxx_flags(const fs::path& bdir,
+                                    const std::string& flags) {
+  const fs::path cache = bdir / "CMakeCache.txt";
+  if (!fs::exists(cache)) return false;
+  auto text = util::read_file(cache);
+  if (!text) return true;
+
+  const std::array<std::string, 3> keys = {
+      "CMAKE_CXX_FLAGS:STRING=",
+      "CMAKE_CXX_FLAGS:UNINITIALIZED=",
+      "CMAKE_CXX_FLAGS:INTERNAL=",
+  };
+  for (const auto& key : keys) {
+    auto pos = text->find(key);
+    if (pos == std::string::npos) continue;
+    pos += key.size();
+    const auto end = text->find('\n', pos);
+    return util::trim(text->substr(
+               pos, end == std::string::npos ? std::string::npos : end - pos)) !=
+           flags;
+  }
+  return !flags.empty();
+}
+
+struct ModuleImports {
+  bool modules = false;
+  bool standard_library = false;
+};
+
+ModuleImports scan_module_imports(const fs::path& root) {
+  ModuleImports result;
+  const std::regex import_pattern(R"((^|[;\s])import\s+)");
+  const std::regex std_import_pattern(R"((^|[;\s])import\s+std(\.compat)?\s*;)");
+  const std::array<std::string_view, 7> source_extensions = {
+      ".c", ".cc", ".cpp", ".cxx", ".cppm", ".ixx", ".mpp"};
+
+  std::error_code ec;
+  const fs::recursive_directory_iterator end;
+  for (fs::recursive_directory_iterator it(
+           root, fs::directory_options::skip_permission_denied, ec);
+       it != end; it.increment(ec)) {
+    if (ec) {
+      ec.clear();
+      continue;
+    }
+
+    if (it->is_directory(ec)) {
+      const auto name = it->path().filename();
+      if (name == "build" || name == "dist" || name == ".git" ||
+          name == "node_modules") {
+        it.disable_recursion_pending();
+      }
+      continue;
+    }
+    if (!it->is_regular_file(ec)) continue;
+
+    const auto extension = it->path().extension().string();
+    if (std::find(source_extensions.begin(), source_extensions.end(), extension) ==
+        source_extensions.end()) {
+      continue;
+    }
+
+    const auto source = util::read_file(it->path());
+    if (!source) continue;
+    if (std::regex_search(*source, import_pattern) ||
+        source->find("export module ") != std::string::npos) {
+      result.modules = true;
+    }
+    if (std::regex_search(*source, std_import_pattern)) {
+      result.standard_library = true;
+    }
+  }
+  return result;
+}
+
+std::optional<std::string> import_std_gate(std::string_view cmake_version) {
+  static const std::regex version_pattern(R"((\d+)\.(\d+))");
+  std::cmatch match;
+  const std::string version(cmake_version);
+  if (!std::regex_search(version.c_str(), match, version_pattern)) {
+    return std::nullopt;
+  }
+  const int major = std::stoi(match[1].str());
+  const int minor = std::stoi(match[2].str());
+
+  if (major == 3 && minor >= 30 && minor <= 31) {
+    return "0e5b6991-d74f-4b3d-a41c-cf096e0b2508";
+  }
+  if (major == 4 && minor == 0) {
+    return "a9e1cf81-9932-4810-974b-6eccaf14e457";
+  }
+  if (major == 4 && minor <= 2) {
+    return "d0edc3af-4c50-42ea-a356-e2862fe7a444";
+  }
+  if (major == 4 && minor == 3) {
+    return "451f2fe2-a8a2-47c3-bc32-94786d8fc91b";
+  }
+  if (major == 4 && minor == 4) {
+    return "f35a9ac6-8463-4d38-8eec-5d6008153e7d";
+  }
+  return std::nullopt;
 }
 
 fs::path find_executable(const fs::path& root) {
@@ -172,15 +298,55 @@ fs::path build_dir(const fs::path& root) {
 }
 
 bool build(const fs::path& root, bool release, bool verbose) {
-  auto toolchain = env::detect();
+  const auto cmake_lists = util::read_file(root / "CMakeLists.txt");
+  const ModuleImports imports = scan_module_imports(root);
+  const bool uses_libcxx = cmake_lists &&
+      cmake_lists->find("-stdlib=libc++") != std::string::npos;
+  const bool uses_std_modules = imports.standard_library || (cmake_lists &&
+      cmake_lists->find("CXX_MODULE_STD") != std::string::npos &&
+      cmake_lists->find(" ON") != std::string::npos);
+  auto toolchain = env::detect(uses_std_modules);
   if (!toolchain.cxx.found || !toolchain.cmake.found || !toolchain.ninja.found) {
     util::error("missing build tools. Run 'cppup doctor' for details.");
     return false;
   }
 
+  if (uses_std_modules && toolchain.os == env::HostOs::MacOS &&
+      toolchain.cxx.version.starts_with("Apple clang")) {
+    util::error("CMake cannot discover import std metadata with AppleClang. "
+                "Install Homebrew LLVM (`brew install llvm`) and rebuild.");
+    return false;
+  }
+  const auto std_gate = uses_std_modules
+                            ? import_std_gate(toolchain.cmake.version)
+                            : std::optional<std::string>{};
+  if (uses_std_modules && !std_gate) {
+    util::error("import std requires CMake 3.30-3.31 or a supported 4.x release");
+    return false;
+  }
+
+  std::string cxx_flags;
+  if (uses_std_modules && uses_libcxx) {
+    if (const char* existing_flags = std::getenv("CXXFLAGS")) {
+      cxx_flags = existing_flags;
+    }
+    if (!cxx_flags.empty()) cxx_flags += ' ';
+    cxx_flags += "-stdlib=libc++";
+  }
+
   fs::path bdir = build_dir(root);
-  if (cache_is_foreign(bdir)) {
-    util::warn("build/ was configured on another path (or another machine).");
+  const bool foreign_cache = cache_is_foreign(bdir);
+  const bool different_compiler = cache_uses_different_compiler(bdir, toolchain.cxx.path);
+  const bool different_cxx_flags = uses_std_modules && uses_libcxx &&
+      cache_uses_different_cxx_flags(bdir, cxx_flags);
+  if (foreign_cache || different_compiler || different_cxx_flags) {
+    if (foreign_cache) {
+      util::warn("build/ was configured on another path (or another machine).");
+    } else {
+      util::warn(different_compiler
+                     ? "build/ was configured with a different C++ compiler."
+                     : "build/ was configured with different C++ flags.");
+    }
     util::info("removing stale CMake cache and reconfiguring");
     std::error_code ec;
     fs::remove_all(bdir, ec);
@@ -203,6 +369,16 @@ bool build(const fs::path& root, bool release, bool verbose) {
       "-DCMAKE_CXX_COMPILER=" + toolchain.cxx.path,
       "-DCMAKE_MAKE_PROGRAM=" + toolchain.ninja.path,
   };
+  if (imports.modules) {
+    configure.push_back("-DCMAKE_CXX_SCAN_FOR_MODULES=ON");
+  }
+  if (uses_std_modules) {
+    configure.push_back("-DCMAKE_EXPERIMENTAL_CXX_IMPORT_STD=" + *std_gate);
+    configure.push_back("-DCMAKE_CXX_MODULE_STD=ON");
+  }
+  if (uses_std_modules && uses_libcxx) {
+    configure.push_back("-DCMAKE_CXX_FLAGS=" + cxx_flags);
+  }
 
   if (verbose) {
     std::cout << util::bold("Configuring (") << build_type << ")...\n";

@@ -30,7 +30,7 @@ struct Environment {
   std::string brew_prefix;   // empty if Homebrew is not installed
 };
 
-Environment detect();
+Environment detect(bool prefer_homebrew_llvm = false);
 
 // Print human-readable report. Returns true if all required tools are present.
 bool doctor(bool verbose = true);

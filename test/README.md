@@ -67,6 +67,9 @@ cmake -S . -B build -G Ninja \
 
 如果当前 CMake 版本要求显式开启 `import std` 实验门控，请参照下方说明，不要盲目复制其他 CMake 版本的实验 UUID。
 
+使用 `cppup build` 时，如果项目启用了 `CXX_MODULE_STD`，macOS 会优先选择
+Homebrew LLVM 的 `clang++`，而不是 Xcode 自带的 AppleClang；切换编译器时会自动重建 `build/` 缓存。
+
 ## 4. 构建与运行
 
 ```bash
@@ -120,6 +123,10 @@ src/main.cpp ── imports std, app.math, app.service
 ### 找不到 `std.cppm` 或 `import std` 模块
 
 说明当前安装可能未提供安装版标准库模块，或 CMake 无法发现它。检查 libc++ 官方 Modules 文档及当前 LLVM 包内容。必要时，按 libc++ 官方文档构建其模块，再接入项目。
+
+### `Toolchain does not support discovering module metadata`
+
+CMake 的 `import std` 元数据发现目前不支持 Xcode 自带的 AppleClang。安装 Homebrew LLVM（`brew install llvm`）后重新运行 `cppup build`；cppup 会自动选择 Homebrew `clang++`。直接调用 CMake 时，按上方步骤显式设置 `CMAKE_CXX_COMPILER`。
 
 ### `module file ... cannot be loaded due to a configuration mismatch`
 
