@@ -2,8 +2,8 @@
 
 这是一个最小可扩展的模块化项目骨架，演示：
 
-- `src/math.cppm` 导出 `app.math`
-- `src/service.cppm` 导出 `app.service` 并导入 `app.math`
+- `modules/app.math.cppm` 导出 `app.math`
+- `modules/app.service.cppm` 导出 `app.service` 并导入 `app.math`
 - `src/main.cpp` 导入 `std` 和业务模块
 - CMake 扫描模块依赖，Ninja 按依赖顺序构建 BMI 与目标文件，最后链接 `build/app`
 
@@ -14,10 +14,13 @@
 ```text
 cpp23-cmake-ninja-starter/
 ├── CMakeLists.txt
+├── .clangd
+├── .gitignore
+├── modules/
+│   ├── app.math.cppm
+│   └── app.service.cppm
 └── src/
-    ├── math.cppm
-    ├── service.cppm
-    └── main.cpp
+  └── main.cpp
 ```
 
 ## 1. 安装工具
@@ -57,15 +60,26 @@ export CLANGXX="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1])
 echo "$CLANGXX"
 ```
 
-然后在项目目录执行配置命令：
+推荐直接通过 cppup 构建。cppup 会打开模块扫描、启用 `CXX_MODULE_STD`，并自动寻找 libc++ 的 modules manifest：
 
 ```bash
-cmake -S . -B build -G Ninja \
-  -DCMAKE_CXX_COMPILER="$CLANGXX" \
-  -DCMAKE_CXX_FLAGS="-stdlib=libc++"
+cppup build --verbose
 ```
 
-如果当前 CMake 版本要求显式开启 `import std` 实验门控，请参照下方说明，不要盲目复制其他 CMake 版本的实验 UUID。
+直接使用 CMake 时，CMake 4.2 及以上也可以显式提供 libc++ manifest：
+
+```bash
+export LIBCXX_MODULES_JSON="$("$CLANGXX" -stdlib=libc++ -print-file-name=libc++.modules.json)"
+if [ "$LIBCXX_MODULES_JSON" = "libc++.modules.json" ] || [ ! -f "$LIBCXX_MODULES_JSON" ]; then
+  LIBCXX_MODULES_JSON="$(find "$LLVM_PREFIX" -name libc++.modules.json -print -quit)"
+fi
+test -f "$LIBCXX_MODULES_JSON"
+
+cmake -S . -B build -G Ninja \
+  -DCMAKE_CXX_COMPILER="$CLANGXX" \
+  -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
+  -DCMAKE_CXX_STDLIB_MODULES_JSON="$LIBCXX_MODULES_JSON"
+```
 
 使用 `cppup build` 时，如果项目启用了 `CXX_MODULE_STD`，macOS 会优先选择
 Homebrew LLVM 的 `clang++`，而不是 Xcode 自带的 AppleClang；切换编译器时会自动重建 `build/` 缓存。
@@ -90,10 +104,10 @@ C++23 modules are working
 libc++ 的 std 模块（由 CMake/工具链提供）
                  │
                  ▼
-src/math.cppm ──► app.math 的 BMI
+modules/app.math.cppm ──► app.math 的 BMI
       │                  │
       ▼                  ▼
- app.math.o        src/service.cppm
+ app.math.o        modules/app.service.cppm
                          │ import app.math
                          ▼
                   app.service 的 BMI

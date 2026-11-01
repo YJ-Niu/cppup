@@ -18,6 +18,7 @@ project(Cpp23ModuleStarter LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # libc++ module support has historically required GNU extensions to be
 # enabled with CMake's import-std integration. Keep this ON for compatibility
@@ -32,8 +33,8 @@ target_sources(app
     PRIVATE
         FILE_SET CXX_MODULES
         FILES
-            src/math.cppm
-            src/service.cppm
+            modules/app.math.cppm
+            modules/app.service.cppm
 )
 
 # Request CMake's standard-library module dependency where supported.
@@ -49,4 +50,37 @@ target_link_options(app PRIVATE -stdlib=libc++)
 # Optional, helpful diagnostics during initial setup.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(app PRIVATE -Wno-reserved-module-identifier)
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_custom_target(copy_module_bmis ALL
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/modules"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/modules"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_BINARY_DIR}/CMakeFiles/app.dir/app.math.pcm"
+            "${CMAKE_SOURCE_DIR}/modules/app.math.pcm"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_BINARY_DIR}/CMakeFiles/app.dir/app.service.pcm"
+            "${CMAKE_SOURCE_DIR}/modules/app.service.pcm"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_BINARY_DIR}/CMakeFiles/@cmake_cxx_std.dir/std.pcm"
+            "${CMAKE_SOURCE_DIR}/modules/std.pcm"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_BINARY_DIR}/CMakeFiles/@cmake_cxx_std.dir/std.compat.pcm"
+            "${CMAKE_SOURCE_DIR}/modules/std.compat.pcm"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/modules/app.math.pcm"
+            "${CMAKE_BINARY_DIR}/modules/app.math.pcm"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/modules/app.service.pcm"
+            "${CMAKE_BINARY_DIR}/modules/app.service.pcm"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/modules/std.pcm"
+            "${CMAKE_BINARY_DIR}/modules/std.pcm"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/modules/std.compat.pcm"
+            "${CMAKE_BINARY_DIR}/modules/std.compat.pcm"
+        DEPENDS app
+        VERBATIM
+    )
 endif()
