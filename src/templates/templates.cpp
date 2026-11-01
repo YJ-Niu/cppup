@@ -54,6 +54,8 @@ const char* BASIC_GITIGNORE = R"(# Build
 build/
 cmake-build-*/
 out/
+compile_commands.json
+CMakeUserPresets.json
 *.o
 *.a
 *.so
@@ -75,7 +77,13 @@ out/
 # compile_commands.json
 )";
 
-const char* CLANGD_CONFIG = R"(CompileFlags:
+const char* BASIC_CLANGD_CONFIG = R"(CompileFlags:
+  Add:
+    - -std=c++23
+  CompilationDatabase: build
+)";
+
+const char* MODULES_CLANGD_CONFIG = R"(CompileFlags:
   Add:
     - -std=c++23
     - -stdlib=libc++
@@ -134,7 +142,7 @@ const char* LAUNCH_JSON = R"JSON({
 
 const char* BASIC_README = R"(# {{NAME}}
 
-A C++23 project created with [cppup](https://github.com/example/cppup).
+A C++23 project created with cppup.
 
 ## Build
 
@@ -177,6 +185,9 @@ else()
   message(FATAL_ERROR "Update the CMAKE_EXPERIMENTAL_CXX_IMPORT_STD gate for this CMake version")
 endif()
 
+set(CMAKE_CXX_FLAGS_INIT "${CMAKE_CXX_FLAGS_INIT} -stdlib=libc++ -Wno-reserved-module-identifier")
+set(CMAKE_EXE_LINKER_FLAGS_INIT "${CMAKE_EXE_LINKER_FLAGS_INIT} -stdlib=libc++")
+
 project({{NAME}} VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -198,6 +209,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  target_compile_options({{NAME}} PRIVATE -Wno-reserved-module-identifier)
   add_custom_target(copy_module_bmis ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/modules"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/modules"
@@ -273,9 +285,10 @@ A C++23 modules project created with cppup.
 - A C++23 compiler and standard library with `import std;` support
 
 `import std;` support depends on the compiler and its standard library, not just
-the C++ language mode. Recent Clang with libc++, GCC 14 or newer with libstdc++,
-or a recent Visual Studio toolset may work; verify your toolchain's module
-support if configuration or compilation fails.
+the C++ language mode. This template uses upstream Clang and libc++; use a recent
+Clang/libc++ package that provides `libc++.modules.json`, `std.cppm`, and
+`std.compat.cppm`. On macOS, install Homebrew LLVM rather than relying on
+AppleClang's module metadata discovery.
 
 ## Modules and PCM files
 
@@ -313,6 +326,7 @@ std::vector<FileEntry> generate(std::string_view template_name,
     files.push_back({"modules/.gitkeep", ""});
     files.push_back({".gitignore",     std::string(BASIC_GITIGNORE)});
     files.push_back({"README.md",      fill(BASIC_README, name)});
+    files.push_back({".clangd", std::string(BASIC_CLANGD_CONFIG)});
   } else if (template_name == "modules") {
     files.push_back({"CMakeLists.txt", fill(MODULES_CMAKE, name)});
     files.push_back({"src/main.cpp", fill(MODULES_MAIN, name)});
@@ -320,13 +334,13 @@ std::vector<FileEntry> generate(std::string_view template_name,
     files.push_back({"modules/app.service.cppm", std::string(MODULES_SERVICE)});
     files.push_back({".gitignore",     std::string(BASIC_GITIGNORE)});
     files.push_back({"README.md",      fill(MODULES_README, name)});
+    files.push_back({".clangd", std::string(MODULES_CLANGD_CONFIG)});
   } else {
     return {}; // unknown
   }
   if (template_name == "modules") {
     files.push_back({"modules/.gitkeep", ""});
   }
-  files.push_back({".clangd", std::string(CLANGD_CONFIG)});
   files.push_back({".vscode/launch.json", fill(LAUNCH_JSON, name)});
   return files;
 }

@@ -378,6 +378,10 @@ bool build(const fs::path& root, bool release, bool verbose) {
     }
     if (!cxx_flags.empty()) cxx_flags += ' ';
     cxx_flags += "-stdlib=libc++";
+    if (toolchain.cxx.version.find("clang") != std::string::npos ||
+        toolchain.cxx.version.find("Clang") != std::string::npos) {
+      cxx_flags += " -Wno-reserved-module-identifier";
+    }
   }
   const auto libcxx_modules_json =
       uses_std_modules && uses_libcxx &&
@@ -426,6 +430,10 @@ bool build(const fs::path& root, bool release, bool verbose) {
   if (uses_std_modules) {
     configure.push_back("-DCMAKE_EXPERIMENTAL_CXX_IMPORT_STD=" + *std_gate);
     configure.push_back("-DCMAKE_CXX_MODULE_STD=ON");
+    if (toolchain.cmake.version.find("4.4") != std::string::npos ||
+        toolchain.cmake.version.find("4.5") != std::string::npos) {
+      configure.push_back("-Wno-experimental");
+    }
   }
   if (uses_std_modules && uses_libcxx) {
     configure.push_back("-DCMAKE_CXX_FLAGS=" + cxx_flags);
