@@ -172,6 +172,12 @@ cppup go
 
 // ---------- C++23 modules template ----------
 const char* MODULES_CMAKE = R"(cmake_minimum_required(VERSION 3.30)
+# Optional: target CPU architecture on macOS (x86_64 or arm64).
+# Example: cmake -B build -DTARGET_ARCH=x86_64 -DTARGET_ARCH=arm64
+set(TARGET_ARCH "")
+if(APPLE AND TARGET_ARCH)
+  set(CMAKE_OSX_ARCHITECTURES "${TARGET_ARCH}")
+endif()
 
 if(CMAKE_VERSION VERSION_LESS "4.0")
   set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "0e5b6991-d74f-4b3d-a41c-cf096e0b2508" CACHE STRING "CMake import std gate" FORCE)
@@ -232,13 +238,6 @@ endif()
 
 set(CMAKE_CXX_FLAGS_INIT "${CMAKE_CXX_FLAGS_INIT} -stdlib=libc++ -Wno-reserved-module-identifier")
 set(CMAKE_EXE_LINKER_FLAGS_INIT "${CMAKE_EXE_LINKER_FLAGS_INIT} -stdlib=libc++")
-
-# Optional: target CPU architecture on macOS (x86_64 or arm64).
-# Example: cmake -B build -DTARGET_ARCH=x86_64 -DTARGET_ARCH=arm64
-set(TARGET_ARCH "")
-if(APPLE AND TARGET_ARCH)
-  set(CMAKE_OSX_ARCHITECTURES "${TARGET_ARCH}")
-endif()
 
 project({{NAME}} VERSION 0.1.0 LANGUAGES CXX)
 

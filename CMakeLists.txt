@@ -37,7 +37,7 @@ endif()
 
 # Target CPU architecture on macOS (e.g. x86_64 for Intel builds).
 # Example: cmake -B build -DCPPUP_TARGET_ARCH=x86_64 CACHE STRING "Target macOS architecture (x86_64, arm64)"
-set(CPPUP_TARGET_ARCH "x86_64")
+set(CPPUP_TARGET_ARCH "arm64")
 if(APPLE AND CPPUP_TARGET_ARCH)
   set(CMAKE_OSX_ARCHITECTURES "${CPPUP_TARGET_ARCH}")
 endif()
