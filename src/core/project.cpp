@@ -205,6 +205,24 @@ std::optional<fs::path> find_libcxx_modules_json(const fs::path& compiler) {
       }
     }
   }
+
+  const fs::path llvm_prefix = compiler.parent_path().parent_path();
+  for (const auto& root : {llvm_prefix / "lib", llvm_prefix / "share"}) {
+    std::error_code ec;
+    const fs::recursive_directory_iterator end;
+    for (fs::recursive_directory_iterator it(
+             root, fs::directory_options::skip_permission_denied, ec);
+         it != end; it.increment(ec)) {
+      if (ec) {
+        ec.clear();
+        continue;
+      }
+      if (it->is_regular_file(ec) &&
+          it->path().filename() == "libc++.modules.json") {
+        return fs::weakly_canonical(it->path(), ec);
+      }
+    }
+  }
   return std::nullopt;
 }
 
@@ -388,6 +406,13 @@ bool build(const fs::path& root, bool release, bool verbose) {
               cmake_supports_stdlib_manifest_override(toolchain.cmake.version)
           ? find_libcxx_modules_json(toolchain.cxx.path)
           : std::optional<fs::path>{};
+  if (uses_std_modules && uses_libcxx &&
+      cmake_supports_stdlib_manifest_override(toolchain.cmake.version) &&
+      !libcxx_modules_json) {
+    util::error("could not find libc++.modules.json for the selected Clang/libc++. "
+                "Install a libc++ package with C++ module metadata.");
+    return false;
+  }
 
   fs::path bdir = build_dir(root);
   const bool foreign_cache = cache_is_foreign(bdir);
