@@ -162,6 +162,52 @@ std::optional<std::string> import_std_gate(std::string_view cmake_version) {
   return std::nullopt;
 }
 
+bool cmake_supports_stdlib_manifest_override(std::string_view cmake_version) {
+  static const std::regex version_pattern(R"((\d+)\.(\d+))");
+  std::cmatch match;
+  const std::string version(cmake_version);
+  if (!std::regex_search(version.c_str(), match, version_pattern)) return false;
+  const int major = std::stoi(match[1].str());
+  const int minor = std::stoi(match[2].str());
+  return major > 4 || (major == 4 && minor >= 2);
+}
+
+std::optional<fs::path> find_libcxx_modules_json(const fs::path& compiler) {
+  const auto printed_path = util::run(
+      {compiler.string(), "-stdlib=libc++", "-print-file-name=libc++.modules.json"},
+      {}, true, true);
+  if (printed_path.exit_code == 0) {
+    fs::path candidate = util::trim(printed_path.stdout_str);
+    if (!candidate.empty() && fs::is_regular_file(candidate)) {
+      return fs::weakly_canonical(candidate);
+    }
+  }
+
+  std::vector<fs::path> search_roots;
+  const auto resource_result = util::run(
+      {compiler.string(), "-print-resource-dir"}, {}, true, true);
+  if (resource_result.exit_code == 0) {
+    search_roots.emplace_back(util::trim(resource_result.stdout_str));
+  }
+  search_roots.push_back(compiler.parent_path().parent_path() / "lib/clang");
+  search_roots.push_back(compiler.parent_path().parent_path() / "lib");
+  search_roots.push_back(compiler.parent_path().parent_path() / "share/libc++");
+
+  for (const auto& root : search_roots) {
+    for (const auto& candidate : {
+             root / "libc++.modules.json",
+             root / "lib/libc++.modules.json",
+             root / "v1/libc++.modules.json",
+         }) {
+      std::error_code ec;
+      if (fs::is_regular_file(candidate, ec)) {
+        return fs::weakly_canonical(candidate, ec);
+      }
+    }
+  }
+  return std::nullopt;
+}
+
 fs::path find_executable(const fs::path& root) {
   std::string exe_name = root.filename().string();
   if (exe_name.empty() || exe_name == "." || exe_name == "/") {
@@ -333,6 +379,11 @@ bool build(const fs::path& root, bool release, bool verbose) {
     if (!cxx_flags.empty()) cxx_flags += ' ';
     cxx_flags += "-stdlib=libc++";
   }
+  const auto libcxx_modules_json =
+      uses_std_modules && uses_libcxx &&
+              cmake_supports_stdlib_manifest_override(toolchain.cmake.version)
+          ? find_libcxx_modules_json(toolchain.cxx.path)
+          : std::optional<fs::path>{};
 
   fs::path bdir = build_dir(root);
   const bool foreign_cache = cache_is_foreign(bdir);
@@ -378,6 +429,10 @@ bool build(const fs::path& root, bool release, bool verbose) {
   }
   if (uses_std_modules && uses_libcxx) {
     configure.push_back("-DCMAKE_CXX_FLAGS=" + cxx_flags);
+  }
+  if (libcxx_modules_json) {
+    configure.push_back("-DCMAKE_CXX_STDLIB_MODULES_JSON=" +
+                        libcxx_modules_json->string());
   }
 
   if (verbose) {
