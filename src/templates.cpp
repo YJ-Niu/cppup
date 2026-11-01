@@ -64,7 +64,8 @@ out/
 
 # IDE
 .idea/
-.vscode/
+.vscode/*
+!.vscode/launch.json
 *.swp
 *~
 .DS_Store
@@ -72,6 +73,59 @@ out/
 # Compile commands (keep if you want)
 # compile_commands.json
 )";
+
+const char* CLANGD_CONFIG = R"(CompileFlags:
+  Add: [-std=c++23]
+  CompilationDatabase: build
+)";
+
+const char* LAUNCH_JSON = R"JSON({
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug (GDB)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/{{NAME}}",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable GDB pretty printing",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    },
+    {
+      "name": "Debug (LLDB)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/{{NAME}}",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "lldb"
+    },
+    {
+      "name": "Debug (Windows)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/{{NAME}}.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "console": "integratedTerminal"
+    }
+  ]
+})JSON";
 
 const char* BASIC_README = R"(# {{NAME}}
 
@@ -123,6 +177,7 @@ project({{NAME}} VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_MODULE_STD ON)
 
 add_executable({{NAME}} src/main.cpp)
@@ -222,6 +277,8 @@ std::vector<FileEntry> generate(std::string_view template_name,
   } else {
     return {}; // unknown
   }
+  files.push_back({".clangd", std::string(CLANGD_CONFIG)});
+  files.push_back({".vscode/launch.json", fill(LAUNCH_JSON, name)});
   return files;
 }
 
