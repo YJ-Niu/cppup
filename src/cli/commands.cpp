@@ -1,12 +1,41 @@
-#include "commands.hpp"
-#include "project.hpp"
-#include "env.hpp"
-#include "util.hpp"
-#include "templates.hpp"
+#include "cli/commands.hpp"
+#include "core/project.hpp"
+#include "platform/env.hpp"
+#include "templates/templates.hpp"
+#include "util/util.hpp"
+#include "version.h"
 
 #include <iostream>
+#include <unordered_map>
 
 namespace commands {
+
+namespace {
+
+enum class Option {
+  Help,
+  Force,
+  Release,
+  Verbose,
+  Version,
+  Template,
+  Unknown
+};
+
+Option parse_option(std::string_view arg) {
+  static const std::unordered_map<std::string_view, Option> options = {
+      {"-h", Option::Help},       {"--help", Option::Help},
+      {"-f", Option::Force},      {"--force", Option::Force},
+      {"-r", Option::Release},    {"--release", Option::Release},
+      {"--verbose", Option::Verbose},
+      {"-v", Option::Version},    {"--version", Option::Version},
+      {"-t", Option::Template},   {"--template", Option::Template},
+  };
+  const auto it = options.find(arg);
+  return it == options.end() ? Option::Unknown : it->second;
+}
+
+} // namespace
 
 Args parse(int argc, char** argv) {
   Args a;
@@ -16,28 +45,40 @@ Args parse(int argc, char** argv) {
   }
 
   for (int i = 1; i < argc; ++i) {
-    std::string arg = argv[i];
-    if (arg == "-h" || arg == "--help") {
-      a.help = true;
-    } else if (arg == "-f" || arg == "--force") {
-      a.force = true;
-    } else if (arg == "-r" || arg == "--release") {
-      a.release = true;
-    } else if (arg == "--verbose") {
-      a.verbose = true;
-    } else if (arg == "-v" || arg == "--version") {
-      a.command = "version";
-    } else if (arg == "-t" || arg == "--template") {
-      if (i + 1 < argc) {
-        a.template_name = argv[++i];
+    const std::string_view arg = argv[i];
+    if (arg.starts_with("-")) {
+      switch (parse_option(arg)) {
+        case Option::Help:
+          a.help = true;
+          break;
+        case Option::Force:
+          a.force = true;
+          break;
+        case Option::Release:
+          a.release = true;
+          break;
+        case Option::Verbose:
+          a.verbose = true;
+          break;
+        case Option::Version:
+          a.command = "version";
+          break;
+        case Option::Template:
+          if (i + 1 < argc) {
+            a.template_name = argv[++i];
+          } else {
+            util::warn("missing value for option: " + std::string(arg));
+          }
+          break;
+        case Option::Unknown:
+          util::warn("unknown option: " + std::string(arg));
+          break;
       }
-    } else if (arg.starts_with("-")) {
-      util::warn("unknown option: " + arg);
     } else {
       if (a.command.empty()) {
         a.command = arg;
       } else {
-        a.positional.push_back(arg);
+        a.positional.emplace_back(arg);
       }
     }
   }
@@ -45,7 +86,7 @@ Args parse(int argc, char** argv) {
 }
 
 void print_version() {
-  std::cout << "cppup 0.2.0\n";
+  std::cout << "cppup " << CPPUP_VERSION << "\n";
 }
 
 void print_help(std::string_view program) {
@@ -58,7 +99,7 @@ void print_help(std::string_view program) {
             << "  bundle          Build a distributable app with runtime dependencies\n"
             << "  run             Run the built executable\n"
             << "  go              Build then run (one-shot)\n"
-            << "  clean           Remove the build/ directory\n"
+            << "  clean           Remove build output and module PCM files\n"
             << "  doctor          Check Clang / CMake / Ninja\n"
             << "  templates       List available project templates\n"
             << "  help            Show this help\n"

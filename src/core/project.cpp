@@ -1,7 +1,7 @@
-#include "project.hpp"
-#include "templates.hpp"
-#include "env.hpp"
-#include "util.hpp"
+#include "core/project.hpp"
+#include "templates/templates.hpp"
+#include "platform/env.hpp"
+#include "util/util.hpp"
 
 #include <cctype>
 #include <chrono>

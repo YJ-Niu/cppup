@@ -66,8 +66,10 @@ MyApp/
 
 ## Architecture
 
-- `cppup_core` contains project operations, toolchain detection, templates, and utilities.
-- `cppup` is the CLI frontend and links against `cppup_core`.
+- `src/app` contains the executable entry point; `src/cli` handles arguments and command routing.
+- `src/core`, `src/platform`, `src/templates`, and `src/util` separate project operations, toolchain detection, scaffolding, and shared utilities.
+- `cppup_core` builds the reusable non-CLI code; `cppup` is the CLI frontend linked against it.
+- `src/version.h` is the single version source for both the CLI and CMake project metadata.
 - A future GUI should be a separate executable linking the same core library; GUI dependencies should stay out of `cppup_core`.
 
 For a full cross-platform desktop app, **Qt 6 Widgets** is the recommended starting point: mature controls, strong CMake integration, and broad platform support. Keep it as an optional GUI target because Qt has a larger dependency footprint and LGPL/commercial licensing considerations. **Dear ImGui** is a better fit for an internal diagnostics panel or developer tool than a conventional end-user desktop app.

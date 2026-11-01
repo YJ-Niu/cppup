@@ -1,5 +1,5 @@
-#include "templates.hpp"
-#include "util.hpp"
+#include "templates/templates.hpp"
+#include "util/util.hpp"
 
 namespace templates {
 

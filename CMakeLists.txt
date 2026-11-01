@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 3.20)
-project(cppup VERSION 0.1.0 LANGUAGES CXX)
+
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h" CPPUP_VERSION_LINE
+  REGEX "^#define CPPUP_VERSION ")
+string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" CPPUP_VERSION "${CPPUP_VERSION_LINE}")
+if(NOT CPPUP_VERSION)
+  message(FATAL_ERROR "Could not read CPPUP_VERSION from src/version.h")
+endif()
+
+project(cppup VERSION "${CPPUP_VERSION}" LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,17 +23,17 @@ if(NOT CMAKE_GENERATOR)
 endif()
 
 add_library(cppup_core
-  src/project.cpp
-  src/env.cpp
-  src/templates.cpp
-  src/util.cpp
+  src/core/project.cpp
+  src/platform/env.cpp
+  src/templates/templates.cpp
+  src/util/util.cpp
 )
 
-target_include_directories(cppup_core PUBLIC src)
+target_include_directories(cppup_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 add_executable(cppup
-  src/main.cpp
-  src/commands.cpp
+  src/app/main.cpp
+  src/cli/commands.cpp
 )
 target_link_libraries(cppup PRIVATE cppup_core)
 
