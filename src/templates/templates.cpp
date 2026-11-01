@@ -227,11 +227,11 @@ set(CMAKE_CXX_MODULE_STD ON)
 
 add_executable({{NAME}} src/main.cpp)
 target_compile_features({{NAME}} PRIVATE cxx_std_23)
+include(modules/modules.cmake)
 target_sources({{NAME}}
   PRIVATE
     FILE_SET CXX_MODULES FILES
-    modules/app.math.cppm
-    modules/app.service.cppm
+    ${CPPUP_MODULE_SOURCES}
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
@@ -242,34 +242,39 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_custom_target(copy_module_bmis ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/modules"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/modules"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_BINARY_DIR}/CMakeFiles/{{NAME}}.dir/app.math.pcm"
-      "${CMAKE_SOURCE_DIR}/modules/app.math.pcm"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_BINARY_DIR}/CMakeFiles/{{NAME}}.dir/app.service.pcm"
-      "${CMAKE_SOURCE_DIR}/modules/app.service.pcm"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_BINARY_DIR}/CMakeFiles/@cmake_cxx_std.dir/std.pcm"
-      "${CMAKE_SOURCE_DIR}/modules/std.pcm"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_BINARY_DIR}/CMakeFiles/@cmake_cxx_std.dir/std.compat.pcm"
-      "${CMAKE_SOURCE_DIR}/modules/std.compat.pcm"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_SOURCE_DIR}/modules/app.math.pcm"
-      "${CMAKE_BINARY_DIR}/modules/app.math.pcm"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_SOURCE_DIR}/modules/app.service.pcm"
-      "${CMAKE_BINARY_DIR}/modules/app.service.pcm"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_SOURCE_DIR}/modules/std.pcm"
-      "${CMAKE_BINARY_DIR}/modules/std.pcm"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_SOURCE_DIR}/modules/std.compat.pcm"
-      "${CMAKE_BINARY_DIR}/modules/std.compat.pcm"
+    COMMAND ${CMAKE_COMMAND}
+      -DCPPUP_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+      -DCPPUP_BINARY_DIR=${CMAKE_BINARY_DIR}
+      -DCPPUP_TARGET={{NAME}}
+      -P "${CMAKE_SOURCE_DIR}/modules/copy-module-bmis.cmake"
     DEPENDS {{NAME}}
     VERBATIM
   )
 endif()
+)";
+
+const char* MODULES_CMAKE_LIST = R"(set(CPPUP_MODULE_SOURCES
+  "${CMAKE_CURRENT_LIST_DIR}/app.math.cppm"
+  "${CMAKE_CURRENT_LIST_DIR}/app.service.cppm"
+)
+)";
+
+const char* MODULES_COPY_BMIS = R"(set(_module_pcm_dirs
+  "${CPPUP_BINARY_DIR}/CMakeFiles/${CPPUP_TARGET}.dir"
+  "${CPPUP_BINARY_DIR}/CMakeFiles/@cmake_cxx_std.dir"
+)
+
+foreach(_pcm_dir IN LISTS _module_pcm_dirs)
+  if(NOT IS_DIRECTORY "${_pcm_dir}")
+    continue()
+  endif()
+  file(GLOB_RECURSE _module_pcms LIST_DIRECTORIES FALSE "${_pcm_dir}/*.pcm")
+  foreach(_pcm IN LISTS _module_pcms)
+    get_filename_component(_pcm_name "${_pcm}" NAME)
+    file(COPY_FILE "${_pcm}" "${CPPUP_SOURCE_DIR}/modules/${_pcm_name}" ONLY_IF_DIFFERENT)
+    file(COPY_FILE "${_pcm}" "${CPPUP_BINARY_DIR}/modules/${_pcm_name}" ONLY_IF_DIFFERENT)
+  endforeach()
+endforeach()
 )";
 
 const char* MODULES_MAIN = R"(import std;
@@ -321,10 +326,10 @@ AppleClang's module metadata discovery.
 
 ## Modules and PCM files
 
-Module interface sources live in `modules/*.cppm`. With Clang, CMake copies
-the generated `std` and application PCM files into `modules/` and `build/modules/`
-so clangd can load them. `cppup clean` removes generated PCM files but preserves
-the module sources.
+Module interface sources live in `modules/*.cppm`. Add another local module with
+`cppup add path/to/module.cppm`. With Clang, CMake copies generated PCM files
+into `modules/` and `build/modules/` so clangd can load them. `cppup clean`
+removes generated PCM files but preserves the module sources.
 
 ## Build and run
 
@@ -361,6 +366,8 @@ std::vector<FileEntry> generate(std::string_view template_name,
     files.push_back({"src/main.cpp", fill(MODULES_MAIN, name)});
     files.push_back({"modules/app.math.cppm", std::string(MODULES_MATH)});
     files.push_back({"modules/app.service.cppm", std::string(MODULES_SERVICE)});
+    files.push_back({"modules/modules.cmake", std::string(MODULES_CMAKE_LIST)});
+    files.push_back({"modules/copy-module-bmis.cmake", std::string(MODULES_COPY_BMIS)});
     files.push_back({".gitignore",     std::string(BASIC_GITIGNORE)});
     files.push_back({"README.md",      fill(MODULES_README, name)});
     files.push_back({".clangd", std::string(MODULES_CLANGD_CONFIG)});

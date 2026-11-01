@@ -16,6 +16,21 @@ Options:
 - `-t, --template <name>`  Template to use (`basic` | `modules`)
 - `-f, --force`            Overwrite existing directory
 
+### `cppup add <path/to/module.cppm>`
+
+Add a local exported C++ module interface to a project created with the
+`modules` template. cppup copies the source into `modules/` and registers it in
+`modules/modules.cmake`; `cppup build` then generates the compiler-specific PCM.
+
+```bash
+cppup add ../shared/math.cppm
+cppup build
+```
+
+The source must contain an `export module name;` declaration. cppup does not
+download or distribute PCM files because they depend on the local compiler,
+standard library, and build flags.
+
 ### `cppup build [-r]`
 
 Configure (if needed) and build the current project.

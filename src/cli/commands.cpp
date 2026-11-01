@@ -95,6 +95,7 @@ void print_help(std::string_view program) {
             << "  " << program << " <command> [options]\n\n"
             << util::bold("Commands:\n")
             << "  init <name>     Create a new C++23 project\n"
+            << "  add <module>    Add a local .cppm module to a modules project\n"
             << "  build           Configure + build with CMake + Ninja\n"
             << "  bundle          Build a distributable app with runtime dependencies\n"
             << "  run             Run the built executable\n"
@@ -115,6 +116,7 @@ void print_help(std::string_view program) {
             << "  cppup -v\n"
             << "  cppup init MyApp\n"
             << "  cppup init MyApp -t modules\n"
+            << "  cppup add ../shared/math.cppm\n"
             << "  cd MyApp && cppup go\n"
             << "  cppup doctor\n"
             << "  # first build of cppup itself: ./bootstrap.sh\n"
@@ -168,6 +170,13 @@ int dispatch(const Args& args) {
   }
   if (args.command == "bundle") {
     return project::bundle(*root, args.release, args.force, args.verbose) ? 0 : 1;
+  }
+  if (args.command == "add") {
+    if (args.positional.empty()) {
+      util::error("usage: cppup add <path/to/module.cppm>");
+      return 1;
+    }
+    return project::add_module(*root, args.positional.front()) ? 0 : 1;
   }
   if (args.command == "run") {
     return project::run(*root, args.positional) ? 0 : 1;
