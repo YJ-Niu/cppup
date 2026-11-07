@@ -109,49 +109,111 @@ void print_version() {
 }
 
 void print_help(std::string_view program) {
-  std::cout << util::bold("cppup") << " — one-command C++ project tool\n\n"
-            << util::bold("Usage:\n")
-            << "  " << program << " <command> [options]\n\n"
-            << util::bold("Commands:\n")
-            << "  init <name>     Create a new C++23 project (with vcpkg manifest)\n"
-            << "  add <module>    Add a local .cppm module to a modules project\n"
-            << "  update          Resolve module imports and refresh modules.cmake\n"
-            << "  install <port>  Add vcpkg packages and install them\n"
-            << "  check           Run format / unused-code / static-analysis checks\n"
-            << "  build           Configure + build (runs checks first unless --no-check)\n"
-            << "  bundle          Build a distributable app with runtime dependencies\n"
-            << "  run             Run the built executable\n"
-            << "  go              Build then run (one-shot)\n"
-            << "  clean           Remove build output and module PCM files\n"
-            << "  vcpkg setup     Install vcpkg (official or China mirror)\n"
-            << "  doctor          Check Clang / CMake / Ninja / vcpkg\n"
-            << "  templates       List available project templates\n"
-            << "  help            Show this help\n"
-            << "  version         Show version\n\n"
-            << util::bold("Options:\n")
-            << "  -v, --version           Show version\n"
-            << "  -t, --template <name>   Template for init (default: basic)\n"
-            << "  -f, --force             Replace existing output (init/bundle/setup)\n"
-            << "  -r, --release           Release build (default: Debug)\n"
-            << "      --verbose           More output during build\n"
-            << "      --no-check          Skip the code checks before building\n"
-            << "      --fix               Apply clang-format and clang-tidy fixes\n"
-            << "      --china             Use the China vcpkg mirror (Gitee + domestic assets)\n"
-            << "      --official          Use the official GitHub vcpkg source\n"
-            << "  -h, --help              Show help\n\n"
-            << util::bold("Examples:\n")
-            << "  cppup -v\n"
-            << "  cppup init MyApp\n"
-            << "  cppup init MyApp -t modules\n"
-            << "  cppup install fmt\n"
-            << "  cppup check --fix\n"
-            << "  cppup vcpkg setup --china\n"
-            << "  cppup add ../shared/math.cppm\n"
-            << "  cppup update\n"
-            << "  cd MyApp && cppup go\n"
-            << "  cppup doctor\n"
-            << "  # first build of cppup itself: ./bootstrap.sh\n"
-            << "  # then: ./build/cppup build --release\n";
+  std::cout
+      << util::bold("cppup") << " — 一站式 C++ 项目管理工具\n\n"
+      << util::bold("用法:\n")
+      << "  " << program << " <命令> [参数]\n"
+      << "  在项目根目录或其任意子目录执行；根目录通过向上查找 CMakeLists.txt 确定\n\n"
+
+      << util::bold("命令:\n")
+      << "  init <项目名>                 创建新的 C++23 项目（自动初始化 vcpkg 清单）\n"
+      << "      -t, --template <名称>     选择模板：basic（默认） | modules\n"
+      << "      -f, --force               覆盖已存在的项目目录（会删除原有内容）\n"
+      << "      --china / --official      指定本项目使用的 vcpkg 源\n"
+      << "      示例: cppup init MyApp\n"
+      << "            cppup init MyLib -t modules\n"
+      << "            cppup init Demo --china --force\n\n"
+
+      << "  add <模块.cppm>               向 modules 项目添加本地模块\n"
+      << "      源文件需包含 export module <名称>;，本地依赖会被一起复制\n"
+      << "      示例: cppup add ../shared/math.cppm\n\n"
+
+      << "  update                        重新扫描 modules/ 并刷新 modules/modules.cmake\n"
+      << "      示例: cppup update\n\n"
+
+      << "  install <包名>...             通过 vcpkg 添加并安装依赖，写入项目配置\n"
+      << "      不带包名时仅同步 vcpkg.json 中的依赖\n"
+      << "      示例: cppup install fmt\n"
+      << "            cppup install fmt spdlog\n"
+      << "            cppup install\n\n"
+
+      << "  check                         运行代码检查（格式 / 未使用代码 / 内存安全）\n"
+      << "      --fix                     自动应用 clang-format 与 clang-tidy 修复\n"
+      << "      示例: cppup check\n"
+      << "            cppup check --fix\n\n"
+
+      << "  build                         配置并构建项目（默认 Debug，构建前先运行检查）\n"
+      << "      -r, --release             使用 Release 构建\n"
+      << "      --no-check                跳过构建前的代码检查\n"
+      << "      --fix                     检查时自动修复可修复的问题\n"
+      << "      --verbose                 输出工具链与构建的详细过程\n"
+      << "      有 vcpkg.json 时自动使用 vcpkg；已安装则跳过安装，未安装则询问安装源\n"
+      << "      示例: cppup build\n"
+      << "            cppup build --release\n"
+      << "            cppup build --release --no-check\n"
+      << "            cppup build --fix --verbose\n\n"
+
+      << "  bundle                        构建并收集非系统运行时依赖到 dist/\n"
+      << "      -r, --release             使用 Release 构建\n"
+      << "      -f, --force               替换已存在的输出目录\n"
+      << "      示例: cppup bundle --release --force\n\n"
+
+      << "  run [程序参数...]             运行已构建的可执行文件，参数原样传递给程序\n"
+      << "      示例: cppup run\n"
+      << "            cppup run --help\n\n"
+
+      << "  go                            一步完成构建并运行\n"
+      << "      -r, --release             使用 Release 构建\n"
+      << "      --no-check                跳过构建前的代码检查\n"
+      << "      --fix                     检查时自动修复可修复的问题\n"
+      << "      示例: cppup go\n"
+      << "            cppup go --release\n\n"
+
+      << "  clean                         删除 build/ 与生成的模块 PCM 文件（保留源码）\n"
+      << "      示例: cppup clean\n\n"
+
+      << "  vcpkg setup                   安装 vcpkg（官网源 / 国内镜像源）\n"
+      << "      --china                   使用国内源（Gitee 仓库 + 清华下载镜像）\n"
+      << "      --official                使用 GitHub 官方源\n"
+      << "      -f, --force               强制重新安装\n"
+      << "      --verbose                 输出安装的详细过程\n"
+      << "      已安装时会提示位置并可选择跳过本次安装；非交互环境自动跳过\n"
+      << "      示例: cppup vcpkg setup\n"
+      << "            cppup vcpkg setup --china\n"
+      << "            cppup vcpkg setup --official --force\n\n"
+
+      << "  doctor                        检查 Clang / CMake / Ninja / vcpkg /\n"
+      << "                                clang-format / clang-tidy 是否可用\n"
+      << "      示例: cppup doctor\n\n"
+
+      << "  templates                     列出可用的项目模板\n"
+      << "  help                          显示本帮助\n"
+      << "  version                       显示版本号\n\n"
+
+      << util::bold("通用参数:\n")
+      << "  -r, --release                 Release 构建（默认 Debug）\n"
+      << "      --verbose                 输出详细过程\n"
+      << "      --no-check                跳过 build / go 前的代码检查\n"
+      << "      --fix                     对 check / build / go 应用自动修复\n"
+      << "  -t, --template <名称>         init 使用的模板（默认 basic）\n"
+      << "  -f, --force                   覆盖已有输出（init / bundle / vcpkg setup）\n"
+      << "      --china                   使用国内 vcpkg 源\n"
+      << "      --official                使用官方 vcpkg 源\n"
+      << "  -v, --version                 显示版本号\n"
+      << "  -h, --help                    显示本帮助\n\n"
+
+      << util::bold("常用示例:\n")
+      << "  cppup init Hello && cd Hello && cppup go\n"
+      << "  cppup init MyLib -t modules\n"
+      << "  cppup install fmt spdlog\n"
+      << "  cppup check --fix\n"
+      << "  cppup build --release --no-check\n"
+      << "  cppup vcpkg setup --china\n"
+      << "  cppup add ../shared/math.cppm\n"
+      << "  cppup update\n"
+      << "  cppup doctor\n"
+      << "  # 首次构建 cppup 自身: ./bootstrap.sh\n"
+      << "  # 之后: ./build/cppup build --release\n";
 }
 
 int dispatch(const Args& args) {

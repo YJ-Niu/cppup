@@ -8,7 +8,7 @@
 
 - `cppup init MyApp` — 创建一个可直接构建的 C++23 项目（自动初始化 vcpkg 清单）
 - `cppup install fmt` — 通过 vcpkg 添加并安装依赖，写入项目配置
-- `cppup vcpkg setup` — 安装 vcpkg，可选择官网源或国内镜像源
+- `cppup vcpkg setup` — 安装 vcpkg（官网源 / 国内镜像源）；已安装时提示位置并提供“跳过本次安装”选项
 - `cppup add path/to/module.cppm` — 将本地模块加入 `modules` 项目
 - `cppup update` — 解析模块 import，并刷新 `modules/modules.cmake`
 - `cppup check` — 运行 `clang-format` 格式检查、未使用代码检查与 `clang-tidy` 静态分析；`--fix` 自动修复可修复的问题
@@ -17,7 +17,7 @@
 - `cppup run` — 运行可执行文件
 - `cppup go` — 一步构建并运行
 - `cppup clean` — 删除构建产物和生成的 module PCM 文件
-- `cppup doctor` — 检查 Clang、CMake、Ninja 和 vcpkg 是否已安装
+- `cppup doctor` — 检查 Clang、CMake、Ninja、clang-format、clang-tidy 和 vcpkg 是否已安装
 - 模板代码内嵌在二进制中，不依赖外部模板文件
 
 ## 快速开始
@@ -60,6 +60,8 @@ cppup go
 MyApp/
 ├── CMakeLists.txt
 ├── .clangd
+├── .clang-format        # clang-format 风格（cppup check 使用）
+├── .clang-tidy          # clang-tidy 检查项（未使用代码 / 内存安全等）
 ├── .cppup.json          # 项目元数据（vcpkg 源、triplet、已安装包）
 ├── vcpkg.json           # vcpkg 清单模式依赖
 ├── vcpkg-configuration.json  # 使用国内源时生成
@@ -106,7 +108,7 @@ cppup init Foo -t modules
 项目使用 vcpkg **清单模式**（`vcpkg.json`）。常用的几个操作：
 
 ```bash
-cppup vcpkg setup            # 安装 vcpkg；交互选择官网源 / 国内源
+cppup vcpkg setup            # 安装 vcpkg；未安装时选择官网源 / 国内源，已安装时可跳过
 cppup vcpkg setup --china    # 直接使用国内源（Gitee 仓库 + 清华下载镜像）
 cppup install fmt            # 添加依赖并 vcpkg install
 cppup build                  # 配置时自动使用 vcpkg toolchain

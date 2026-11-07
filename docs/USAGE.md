@@ -24,6 +24,7 @@ cppup init Existing --force          # 覆盖已有目录（危险）
 - `vcpkg-configuration.json`：仅在 vcpkg 来自 Gitee 镜像时生成
 - `.cppup.json`：项目元数据（项目名、模板、vcpkg 源 / triplet / 已安装包）
 - `.clangd`：引用 `build/vcpkg_installed/<triplet>/include`
+- `.clang-format` / `.clang-tidy`：供 `cppup check` 与 `cppup build` 使用的格式与静态检查配置
 
 ### `cppup vcpkg setup [--china|--official] [-f]`
 
@@ -40,7 +41,8 @@ cppup vcpkg setup --official # GitHub 官方源
 执行时先检测是否已安装 vcpkg：
 
 - 未安装：仅显示安装源选项，并打印将要安装到的目录
-- 已安装：提示安装位置，并提供 `跳过本次安装`（默认）、切换官网源、切换国内源三个选项
+- 已安装：提示安装位置，并提供 `跳过本次安装`（默认）、切换官网源、切换国内源三个选项；
+  非交互环境（如 CI）自动跳过安装
 - 安装或切换后会打印实际使用的源、仓库地址和下载镜像；中国大陆网络建议选择国内源
 
 国内源会：
@@ -94,13 +96,14 @@ PCM 文件是编译器特定的构建产物；`cppup update` 不会把它们加�
 
 ### `cppup check [--fix]`
 
-配置项目（生成 `build/compile_commands.json`），然后在不编译的情况下执行代码检查：
+执行代码检查。若项目已有 `build/compile_commands.json`（例如刚构建过），直接复用它；
+否则先配置项目生成该编译数据库（不会编译）。检查项：
 
-- **格式检查**：`clang-format --dry-run --Werror`，使用项目根目录的 `.clang-format`；`--fix` 会直接格式化源码。
+- **格式检查**：`clang-format --dry-run --Werror`，使用项目根目录的 `.clang-format`（缺失时跳过）；`--fix` 会直接格式化源码。
 - **未使用代码**：`clang-diagnostic-unused-*`（未使用变量、函数等）。
 - **内存安全与常见缺陷**：`clang-analyzer-*`（空指针解引用、泄漏、use-after-free 等）和 `bugprone-*`；
   检查项由项目根目录的 `.clang-tidy` 配置，`cppup init` 会自动生成。
-- **自动修复**：`--fix` 先格式化源码，再应用 `clang-tidy` 提供的建议修复（如 `modernize-*`）；
+- **自动修复**：`--fix` 先格式化源码，再应用 `clang-tidy` 提供的建议修复；
   无法自动修复的问题仍会导致检查失败。
 
 ```bash
@@ -136,7 +139,11 @@ cmake --build build --parallel
 -DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake
 ```
 
-vcpkg 未安装时会自动执行一次 `cppup vcpkg setup`（交互选择源）。
+vcpkg 处理流程：
+
+- 已安装：打印安装位置（`vcpkg already installed at ...`）并跳过安装，直接使用现有 vcpkg
+- 未安装：提示 vcpkg 未安装，仅提供安装源选择并打印安装目录，然后自动执行安装
+- 安装完成后再次定位 vcpkg；仍找不到 toolchain 时会提示检查 `VCPKG_ROOT` 或重新运行 `cppup vcpkg setup`
 
 ### `cppup bundle [--release] [--force]`
 
@@ -160,13 +167,15 @@ cppup run
 cppup run --help
 ```
 
-### `cppup go [-r]`
+### `cppup go [-r] [--no-check] [--fix]`
 
-`build` + `run` 的快捷命令。
+`build` + `run` 的快捷命令，构建前的代码检查行为与 `cppup build` 相同。
 
 ```bash
 cppup go
 cppup go --release
+cppup go --no-check   # 跳过构建前的代码检查
+cppup go --fix        # 先自动修复再检查并运行
 ```
 
 ### `cppup clean`
@@ -175,7 +184,8 @@ cppup go --release
 
 ### `cppup doctor`
 
-检查所需工具是否可用，并输出版本号（包括可选的 vcpkg）。
+检查所需工具是否可用，并输出版本号：Clang、CMake、Ninja、vcpkg，以及可选的
+`clang-format` / `clang-tidy`。缺少检查工具不会阻止构建，但 `cppup check` 会跳过对应检查。
 
 ### `cppup templates`
 
