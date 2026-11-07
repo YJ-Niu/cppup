@@ -27,13 +27,21 @@ cppup init Existing --force          # 覆盖已有目录（危险）
 
 ### `cppup vcpkg setup [--china|--official] [-f]`
 
-安装 vcpkg 本体（默认目录 `~/.cppup/vcpkg`，可用 `VCPKG_ROOT` 覆盖）。
+安装 vcpkg 本体。默认安装目录随操作系统确定：macOS `~/Library/Application Support/cppup/vcpkg`、
+Windows `%LOCALAPPDATA%\cppup\vcpkg`、Linux `$XDG_DATA_HOME/cppup/vcpkg`（无该变量时
+`~/.local/share/cppup/vcpkg`）；可用 `VCPKG_ROOT` 或 `~/.cppup/config.json` 覆盖。
 
 ```bash
-cppup vcpkg setup            # 交互式询问：官网源还是国内源
+cppup vcpkg setup            # 交互式；已安装时可选择跳过本次安装
 cppup vcpkg setup --china    # Gitee 仓库 + 国内下载镜像
 cppup vcpkg setup --official # GitHub 官方源
 ```
+
+执行时先检测是否已安装 vcpkg：
+
+- 未安装：仅显示安装源选项，并打印将要安装到的目录
+- 已安装：提示安装位置，并提供 `跳过本次安装`（默认）、切换官网源、切换国内源三个选项
+- 安装或切换后会打印实际使用的源、仓库地址和下载镜像；中国大陆网络建议选择国内源
 
 国内源会：
 

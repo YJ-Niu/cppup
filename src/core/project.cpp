@@ -519,9 +519,17 @@ bool configure_project(const fs::path& root, bool release, bool verbose,
   std::vector<std::pair<std::string, std::string>> vcpkg_env;
   if (vcpkg::has_manifest(root)) {
     auto location = vcpkg::locate(root);
-    if (!location.found) {
-      util::info("vcpkg is required by vcpkg.json; installing vcpkg...");
-      if (!vcpkg::setup(vcpkg::prompt_source(), false, verbose)) {
+    if (location.found) {
+      util::info("vcpkg already installed at " + location.root.string() +
+                 "; skipping installation");
+    } else {
+      util::info("vcpkg is required by vcpkg.json but not installed");
+      const auto choice = vcpkg::prompt_setup(location);
+      if (choice.skip) {
+        util::error("vcpkg is required but the installation was skipped");
+        return false;
+      }
+      if (!vcpkg::setup(choice.source, false, verbose)) {
         util::error("vcpkg setup failed");
         return false;
       }

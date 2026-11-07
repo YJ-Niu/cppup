@@ -40,6 +40,16 @@ fs::path configured_root();
 // Look for vcpkg via VCPKG_ROOT, the cppup config, common locations, or PATH.
 Location locate(const fs::path& project_root = {});
 
+struct SetupChoice {
+  bool skip = false;  // use the existing installation, do not install
+  Source source = Source::Official;
+};
+
+// Interactive install choice used by `cppup vcpkg setup` and by build when
+// vcpkg is missing. When `existing` is found, a "skip this installation"
+// option is offered; otherwise only the source choice is shown.
+SetupChoice prompt_setup(const Location& existing);
+
 // Clone + bootstrap vcpkg. May be interactive when source is unset.
 bool setup(Source source, bool force = false, bool verbose = false);
 

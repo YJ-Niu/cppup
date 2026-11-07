@@ -182,13 +182,25 @@ int dispatch(const Args& args) {
       util::error("usage: cppup vcpkg setup [--china|--official] [--force]");
       return 1;
     }
-    vcpkg::Source source;
     if (!args.vcpkg_source.empty()) {
-      source = *vcpkg::parse_source(args.vcpkg_source);
-    } else {
-      source = vcpkg::prompt_source();
+      auto source = *vcpkg::parse_source(args.vcpkg_source);
+      return vcpkg::setup(source, args.force, args.verbose) ? 0 : 1;
     }
-    return vcpkg::setup(source, args.force, args.verbose) ? 0 : 1;
+
+    const auto existing = vcpkg::locate();
+    const auto choice = vcpkg::prompt_setup(existing);
+    if (choice.skip) {
+      if (existing.found) {
+        util::info("skipped the vcpkg installation; using " +
+                   existing.root.string());
+        std::cout << util::dim(
+                         "  switch source with 'cppup vcpkg setup --official' "
+                         "or '--china'")
+                  << "\n";
+      }
+      return 0;
+    }
+    return vcpkg::setup(choice.source, args.force, args.verbose) ? 0 : 1;
   }
 
   if (args.command == "init") {

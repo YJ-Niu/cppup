@@ -120,7 +120,10 @@ cppup build                  # 配置时自动使用 vcpkg toolchain
 | `CPPUP_VCPKG_ASSET_MIRROR` | `https://mirrors.tuna.tsinghua.edu.cn/vcpkg/assets/` |
 
 安装信息记录在项目的 `.cppup.json` 中（源类型、triplet、vcpkg 根目录、已安装包），
-全局的源与根目录记录在 `~/.cppup/config.json`。
+全局的源与根目录记录在 `~/.cppup/config.json`。默认安装目录按操作系统选择（macOS
+`~/Library/Application Support/cppup/vcpkg`、Windows `%LOCALAPPDATA%\cppup\vcpkg`、
+Linux `$XDG_DATA_HOME/cppup/vcpkg`）。`cppup build` 发现 vcpkg 已安装时会提示并跳过安装；
+未安装时进入安装源选择。
 
 ## 环境要求
 

@@ -47,6 +47,27 @@ fs::path home_directory() {
   return fs::path(env_value("HOME"));
 }
 
+// Default install directory chosen per operating system.
+fs::path default_root() {
+#if defined(_WIN32)
+  if (auto local = env_value("LOCALAPPDATA"); !local.empty()) {
+    return fs::path(local) / "cppup" / "vcpkg";
+  }
+  if (auto profile = env_value("USERPROFILE"); !profile.empty()) {
+    return fs::path(profile) / "AppData" / "Local" / "cppup" / "vcpkg";
+  }
+  return home_directory() / ".cppup" / "vcpkg";
+#elif defined(__APPLE__)
+  return home_directory() / "Library" / "Application Support" / "cppup" /
+         "vcpkg";
+#else
+  if (auto data = env_value("XDG_DATA_HOME"); !data.empty()) {
+    return fs::path(data) / "cppup" / "vcpkg";
+  }
+  return home_directory() / ".local" / "share" / "cppup" / "vcpkg";
+#endif
+}
+
 fs::path config_path() {
   return home_directory() / ".cppup" / "config.json";
 }
@@ -262,6 +283,18 @@ bool write_configuration(const fs::path& project_root, Source source) {
   return util::write_file(project_root / "vcpkg-configuration.json", text);
 }
 
+void report_source(Source source) {
+  const Mirror selected = mirror(source);
+  util::info("vcpkg source: " + source_name(source));
+  std::cout << util::dim("  repository: " + selected.repository) << "\n";
+  if (!selected.asset_sources.empty()) {
+    std::cout << util::dim("  assets:     " + selected.asset_sources) << "\n";
+  }
+  std::cout << util::dim("  switch source with 'cppup vcpkg setup --official' "
+                         "or '--china'")
+            << "\n";
+}
+
 } // namespace
 
 std::string source_name(Source source) {
@@ -309,26 +342,83 @@ Source prompt_source() {
   if (auto parsed = parse_source(env_value("CPPUP_VCPKG_MIRROR"))) return *parsed;
   if (!interactive_stdin()) return configured_source();
 
-  std::cout << util::bold("Select vcpkg source / 选择 vcpkg 安装源")
+  const Source current = configured_source();
+  const char* default_choice = current == Source::ChinaMirror ? "2" : "1";
+
+  std::cout << util::bold("Select vcpkg source / 选择 vcpkg 安装源") << "\n"
+            << "  Current / 当前配置: " << util::cyan(source_name(current)) << "\n"
+            << "  Install to / 安装目录: " << util::cyan(configured_root().string())
             << "\n"
             << "  1) Official GitHub (官网源，默认)\n"
-            << "  2) China mirror (国内源：Gitee 仓库 + 国内下载镜像)\n"
-            << "Choice / 选择 [1/2] (default 1): ";
+            << "     clone microsoft/vcpkg from GitHub\n"
+            << "     needs stable access to GitHub\n"
+            << "  2) China mirror (国内源，中国大陆推荐)\n"
+            << "     clone the Gitee mirror, download assets from the "
+               "Tsinghua mirror\n"
+            << "     falls back to the official source when unavailable\n"
+            << "Choice / 选择 [1/2] (default " << default_choice << "): ";
   std::cout.flush();
   std::string line;
   if (!std::getline(std::cin, line)) line.clear();
   line = util::trim(line);
-  if (line.empty()) return Source::Official;
+  if (line.empty()) return current;
   if (auto parsed = parse_source(line)) return *parsed;
   util::warn("unknown choice '" + line + "', using official source");
   return Source::Official;
+}
+
+SetupChoice prompt_setup(const Location& existing) {
+  SetupChoice choice;
+  choice.source = configured_source();
+
+  if (existing.found) {
+    util::success("vcpkg already installed at " + existing.root.string());
+    if (!interactive_stdin()) {
+      choice.skip = true;
+      return choice;
+    }
+    std::cout << util::bold("vcpkg is already installed / vcpkg 已安装") << "\n"
+              << "  1) Skip this installation (use the installed vcpkg) / "
+                 "跳过本次安装\n"
+              << "  2) Use the official source (update config) / 官网源\n"
+              << "  3) Use the China mirror (update config) / 国内源\n"
+              << "Choice / 选择 [1/2/3] (default 1): ";
+    std::cout.flush();
+    std::string line;
+    if (!std::getline(std::cin, line)) line.clear();
+    line = util::trim(line);
+    if (line.empty() || line == "1" || line == "skip") {
+      choice.skip = true;
+      return choice;
+    }
+    if (line == "2") {
+      choice.source = Source::Official;
+      return choice;
+    }
+    if (line == "3") {
+      choice.source = Source::ChinaMirror;
+      return choice;
+    }
+    if (auto parsed = parse_source(line)) {
+      choice.source = *parsed;
+      return choice;
+    }
+    util::warn("unknown choice '" + line + "', skipping installation");
+    choice.skip = true;
+    return choice;
+  }
+
+  util::info("vcpkg is not installed; it will be installed in " +
+             configured_root().string());
+  choice.source = prompt_source();
+  return choice;
 }
 
 fs::path configured_root() {
   if (auto root = env_value("VCPKG_ROOT"); !root.empty()) return fs::path(root);
   const auto config = read_global_config();
   if (!config.root.empty()) return fs::path(config.root);
-  return home_directory() / ".cppup" / "vcpkg";
+  return default_root();
 }
 
 Location locate(const fs::path& project_root) {
@@ -338,6 +428,7 @@ Location locate(const fs::path& project_root) {
   }
   const auto config = read_global_config();
   if (!config.root.empty()) roots.emplace_back(config.root);
+  roots.push_back(default_root());
   roots.push_back(home_directory() / ".cppup" / "vcpkg");
   roots.push_back(home_directory() / "vcpkg");
   if (!project_root.empty()) {
@@ -393,6 +484,7 @@ bool setup(Source source, bool force, bool verbose) {
   if (existing.found && !force) {
     write_global_config(source, root);
     util::success("vcpkg already installed at " + root.string());
+    report_source(source);
     return true;
   }
 
@@ -420,7 +512,7 @@ bool setup(Source source, bool force, bool verbose) {
     std::error_code ec;
     fs::create_directories(root.parent_path(), ec);
     auto repository = mirror(actual).repository;
-    util::info("cloning vcpkg from " + repository);
+    util::info("cloning vcpkg (" + source_name(actual) + ") from " + repository);
     auto clone = util::run({"git", "clone", "--depth", "1", repository,
                             root.string()},
                            {}, false, !verbose);
@@ -473,9 +565,7 @@ bool setup(Source source, bool force, bool verbose) {
 
   write_global_config(actual, root);
   util::success("vcpkg installed at " + root.string());
-  if (actual == Source::ChinaMirror) {
-    util::info("package downloads use " + mirror(actual).asset_sources);
-  }
+  report_source(actual);
   std::cout << util::dim("  Add this to your shell profile:")
             << "\n  export VCPKG_ROOT=\"" << root.string() << "\"\n";
   return true;
