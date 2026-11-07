@@ -14,11 +14,16 @@ struct Options {
   std::string name;
   std::string template_name = "basic";
   fs::path    directory;          // where to create (default = cwd / name)
+  std::string vcpkg_source;       // "official", "china", or empty (= config)
   bool        force = false;      // overwrite existing
 };
 
 // Create a new project. Returns true on success.
 bool init(const Options& opts);
+
+// Install vcpkg ports into the current project (manifest mode).
+bool install_packages(const fs::path& root,
+                      const std::vector<std::string>& packages);
 
 // Add a local C++ module interface and its referenced module sources.
 bool add_module(const fs::path& root, const fs::path& source);

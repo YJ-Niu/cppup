@@ -1,5 +1,6 @@
 #include "cli/commands.hpp"
 #include "core/project.hpp"
+#include "core/vcpkg.hpp"
 #include "platform/env.hpp"
 #include "templates/templates.hpp"
 #include "util/util.hpp"
@@ -19,6 +20,8 @@ enum class Option {
   Verbose,
   Version,
   Template,
+  China,
+  Official,
   Unknown
 };
 
@@ -30,6 +33,7 @@ Option parse_option(std::string_view arg) {
       {"--verbose", Option::Verbose},
       {"-v", Option::Version},    {"--version", Option::Version},
       {"-t", Option::Template},   {"--template", Option::Template},
+      {"--china", Option::China}, {"--official", Option::Official},
   };
   const auto it = options.find(arg);
   return it == options.end() ? Option::Unknown : it->second;
@@ -70,6 +74,12 @@ Args parse(int argc, char** argv) {
             util::warn("missing value for option: " + std::string(arg));
           }
           break;
+        case Option::China:
+          a.vcpkg_source = "china";
+          break;
+        case Option::Official:
+          a.vcpkg_source = "official";
+          break;
         case Option::Unknown:
           util::warn("unknown option: " + std::string(arg));
           break;
@@ -94,29 +104,35 @@ void print_help(std::string_view program) {
             << util::bold("Usage:\n")
             << "  " << program << " <command> [options]\n\n"
             << util::bold("Commands:\n")
-            << "  init <name>     Create a new C++23 project\n"
+            << "  init <name>     Create a new C++23 project (with vcpkg manifest)\n"
             << "  add <module>    Add a local .cppm module to a modules project\n"
             << "  update          Resolve module imports and refresh modules.cmake\n"
-            << "  build           Configure + build with CMake + Ninja\n"
+            << "  install <port>  Add vcpkg packages and install them\n"
+            << "  build           Configure + build with CMake + Ninja (vcpkg aware)\n"
             << "  bundle          Build a distributable app with runtime dependencies\n"
             << "  run             Run the built executable\n"
             << "  go              Build then run (one-shot)\n"
             << "  clean           Remove build output and module PCM files\n"
-            << "  doctor          Check Clang / CMake / Ninja\n"
+            << "  vcpkg setup     Install vcpkg (official or China mirror)\n"
+            << "  doctor          Check Clang / CMake / Ninja / vcpkg\n"
             << "  templates       List available project templates\n"
             << "  help            Show this help\n"
             << "  version         Show version\n\n"
             << util::bold("Options:\n")
             << "  -v, --version           Show version\n"
             << "  -t, --template <name>   Template for init (default: basic)\n"
-            << "  -f, --force             Replace existing output (init or bundle)\n"
+            << "  -f, --force             Replace existing output (init/bundle/setup)\n"
             << "  -r, --release           Release build (default: Debug)\n"
             << "      --verbose           More output during build\n"
+            << "      --china             Use the China vcpkg mirror (Gitee + domestic assets)\n"
+            << "      --official          Use the official GitHub vcpkg source\n"
             << "  -h, --help              Show help\n\n"
             << util::bold("Examples:\n")
             << "  cppup -v\n"
             << "  cppup init MyApp\n"
             << "  cppup init MyApp -t modules\n"
+            << "  cppup install fmt\n"
+            << "  cppup vcpkg setup --china\n"
             << "  cppup add ../shared/math.cppm\n"
             << "  cppup update\n"
             << "  cd MyApp && cppup go\n"
@@ -147,15 +163,31 @@ int dispatch(const Args& args) {
     return 0;
   }
 
+  if (args.command == "vcpkg") {
+    const std::string sub = args.positional.empty() ? "setup" : args.positional[0];
+    if (sub != "setup") {
+      util::error("usage: cppup vcpkg setup [--china|--official] [--force]");
+      return 1;
+    }
+    vcpkg::Source source;
+    if (!args.vcpkg_source.empty()) {
+      source = *vcpkg::parse_source(args.vcpkg_source);
+    } else {
+      source = vcpkg::prompt_source();
+    }
+    return vcpkg::setup(source, args.force, args.verbose) ? 0 : 1;
+  }
+
   if (args.command == "init") {
     if (args.positional.empty()) {
-      util::error("usage: cppup init <name> [-t template] [--force]");
+      util::error("usage: cppup init <name> [-t template] [--china] [--force]");
       return 1;
     }
     project::Options opts;
     opts.name = args.positional[0];
     opts.template_name = args.template_name;
     opts.force = args.force;
+    opts.vcpkg_source = args.vcpkg_source;
     return project::init(opts) ? 0 : 1;
   }
 
@@ -169,6 +201,12 @@ int dispatch(const Args& args) {
 
   if (args.command == "build") {
     return project::build(*root, args.release, args.verbose) ? 0 : 1;
+  }
+  if (args.command == "install") {
+    if (args.positional.empty()) {
+      util::info("no packages given; synchronizing the vcpkg manifest");
+    }
+    return project::install_packages(*root, args.positional) ? 0 : 1;
   }
   if (args.command == "bundle") {
     return project::bundle(*root, args.release, args.force, args.verbose) ? 0 : 1;

@@ -15,6 +15,7 @@ struct Args {
   bool release = false;
   bool verbose = false;
   std::string template_name = "basic";
+  std::string vcpkg_source;  // "official", "china", or empty
 };
 
 Args parse(int argc, char** argv);

@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <utility>
 
 namespace fs = std::filesystem;
 
@@ -34,7 +35,8 @@ struct CmdResult {
 CmdResult run(const std::vector<std::string>& args,
               const fs::path& cwd = {},
               bool capture = false,
-              bool quiet = false);
+              bool quiet = false,
+              const std::vector<std::pair<std::string, std::string>>& env = {});
 
 // Check if executable exists in PATH
 bool command_exists(std::string_view name);

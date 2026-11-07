@@ -151,3 +151,20 @@ echo
 echo "cppup is ready: $ROOT/build/cppup"
 echo "Rebuild this repo with itself:"
 echo "  $ROOT/build/cppup build --release"
+
+CPPUP_BIN="$ROOT/build/cppup"
+if [ ! -x "$CPPUP_BIN" ] && [ -x "$ROOT/build/cppup.exe" ]; then
+  CPPUP_BIN="$ROOT/build/cppup.exe"
+fi
+
+echo
+echo "Installing vcpkg (C++ package manager)..."
+if [ "${CPPUP_VCPKG_SOURCE:-}" = "china" ]; then
+  "$CPPUP_BIN" vcpkg setup --china || {
+    echo "warning: vcpkg setup failed — rerun '$CPPUP_BIN vcpkg setup'" >&2
+  }
+else
+  "$CPPUP_BIN" vcpkg setup || {
+    echo "warning: vcpkg setup failed — rerun '$CPPUP_BIN vcpkg setup'" >&2
+  }
+fi

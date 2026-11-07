@@ -212,6 +212,7 @@ Environment detect(bool prefer_homebrew_llvm) {
   e.cmake   = check_tool("cmake", e.brew_prefix, e.os);
   e.ninja   = check_tool("ninja", e.brew_prefix, e.os);
   e.git     = check_tool("git", e.brew_prefix, e.os);
+  e.vcpkg   = check_tool("vcpkg", e.brew_prefix, e.os);
 
   e.cxx = e.clangxx;
   if (!e.cxx.found && e.os != HostOs::Windows) {
@@ -280,6 +281,7 @@ bool doctor(bool verbose) {
   print("ninja", e.ninja, true);
   print("clang", e.clang, false);
   print("git", e.git, false);
+  print("vcpkg", e.vcpkg, false);
 
   if (verbose) {
     std::cout << "\n";

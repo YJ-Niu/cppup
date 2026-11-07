@@ -27,6 +27,7 @@ struct Environment {
   ToolInfo cmake;
   ToolInfo ninja;
   ToolInfo git;              // optional but nice
+  ToolInfo vcpkg;            // optional; required by projects with vcpkg.json
   std::string brew_prefix;   // empty if Homebrew is not installed
 };
 

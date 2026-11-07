@@ -58,7 +58,8 @@ std::string dim(std::string_view s) {
 }
 
 CmdResult run(const std::vector<std::string>& args, const fs::path& cwd,
-              bool capture, bool quiet) {
+              bool capture, bool quiet,
+              const std::vector<std::pair<std::string, std::string>>& env) {
   if (args.empty()) return {-1, "", "empty command"};
 
   std::string cmd;
@@ -78,12 +79,31 @@ CmdResult run(const std::vector<std::string>& args, const fs::path& cwd,
     }
   }
 
+  std::string env_prefix;
+  if (!env.empty()) {
+    for (const auto& [key, value] : env) {
+#ifdef _WIN32
+      env_prefix += "set \"" + key + "=" + value + "\" && ";
+#else
+      std::string quoted = "'";
+      for (char c : value) {
+        if (c == '\'') quoted += "'\\''";
+        else quoted += c;
+      }
+      quoted += "'";
+      env_prefix += key + "=" + quoted + " ";
+#endif
+    }
+  }
+
   if (!cwd.empty()) {
 #ifdef _WIN32
-    cmd = "cd /d \"" + cwd.string() + "\" && " + cmd;
+    cmd = "cd /d \"" + cwd.string() + "\" && " + env_prefix + cmd;
 #else
-    cmd = "cd \"" + cwd.string() + "\" && " + cmd;
+    cmd = "cd \"" + cwd.string() + "\" && " + env_prefix + cmd;
 #endif
+  } else {
+    cmd = env_prefix + cmd;
   }
 
   if (!quiet && !capture) {

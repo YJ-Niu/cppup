@@ -1,4 +1,5 @@
 #include "core/project.hpp"
+#include "core/vcpkg.hpp"
 #include "templates/templates.hpp"
 #include "platform/env.hpp"
 #include "util/util.hpp"
@@ -308,6 +309,23 @@ bool init(const Options& opts) {
     return false;
   }
 
+  vcpkg::Source vcpkg_source = vcpkg::configured_source();
+  if (!opts.vcpkg_source.empty()) {
+    auto parsed = vcpkg::parse_source(opts.vcpkg_source);
+    if (!parsed) {
+      util::error("unknown vcpkg source: " + opts.vcpkg_source +
+                  " (expected 'official' or 'china')");
+      return false;
+    }
+    vcpkg_source = *parsed;
+  }
+
+  const std::string include_path = vcpkg::include_dir(target).generic_string();
+  for (auto& file : files) {
+    file.content = util::replace_all(std::move(file.content),
+                                     "{{VCPKG_INCLUDE}}", include_path);
+  }
+
   try {
     fs::create_directories(target);
   } catch (const std::exception& e) {
@@ -323,6 +341,26 @@ bool init(const Options& opts) {
     }
     std::cout << util::dim("  created ") << f.relative_path << "\n";
   }
+
+  if (!vcpkg::ensure_manifest(target, opts.name, vcpkg_source)) {
+    util::error("failed to initialize the vcpkg project environment");
+    return false;
+  }
+  std::cout << util::dim("  created ") << "vcpkg.json\n";
+  if (vcpkg_source == vcpkg::Source::ChinaMirror &&
+      fs::exists(target / "vcpkg-configuration.json")) {
+    std::cout << util::dim("  created ") << "vcpkg-configuration.json\n";
+  }
+
+  vcpkg::ProjectConfig config;
+  config.name = opts.name;
+  config.template_name = opts.template_name;
+  config.source = vcpkg_source;
+  if (!vcpkg::write_project_config(target, config)) {
+    util::error("failed to write .cppup.json");
+    return false;
+  }
+  std::cout << util::dim("  created ") << ".cppup.json\n";
 
   // Optional: git init
   if (util::command_exists("git")) {
@@ -466,6 +504,27 @@ bool build(const fs::path& root, bool release, bool verbose) {
                         libcxx_modules_json->string());
   }
 
+  std::vector<std::pair<std::string, std::string>> vcpkg_env;
+  if (vcpkg::has_manifest(root)) {
+    auto location = vcpkg::locate(root);
+    if (!location.found) {
+      util::info("vcpkg is required by vcpkg.json; installing vcpkg...");
+      if (!vcpkg::setup(vcpkg::prompt_source(), false, verbose)) {
+        util::error("vcpkg setup failed");
+        return false;
+      }
+      location = vcpkg::locate(root);
+    }
+    const auto vcpkg_toolchain = vcpkg::toolchain_file(root);
+    if (vcpkg_toolchain.empty()) {
+      util::error("vcpkg CMake toolchain not found.\n"
+                  "  Fix VCPKG_ROOT or run 'cppup vcpkg setup'");
+      return false;
+    }
+    configure.push_back("-DCMAKE_TOOLCHAIN_FILE=" + vcpkg_toolchain.string());
+    vcpkg_env = vcpkg::install_env(root);
+  }
+
   if (verbose) {
     std::cout << util::bold("Configuring (") << build_type << ")...\n";
     std::cout << util::dim("  os    ") << env::host_os_name(toolchain.os) << "\n";
@@ -476,7 +535,7 @@ bool build(const fs::path& root, bool release, bool verbose) {
     std::cout << util::dim("  ninja ") << toolchain.ninja.path << "\n";
     std::cout << util::dim("  c++   ") << toolchain.cxx.path << "\n";
   }
-  auto conf = util::run(configure, {}, false, !verbose);
+  auto conf = util::run(configure, {}, false, !verbose, vcpkg_env);
   if (conf.exit_code != 0) {
     util::error("cmake configure failed");
     return false;
@@ -489,13 +548,19 @@ bool build(const fs::path& root, bool release, bool verbose) {
   if (verbose) {
     std::cout << util::bold("Building...\n");
   }
-  auto b = util::run(build_cmd, {}, false, !verbose);
+  auto b = util::run(build_cmd, {}, false, !verbose, vcpkg_env);
   if (b.exit_code != 0) {
     util::error("build failed");
     return false;
   }
 
   util::success("Build finished (" + build_type + ")");
+  return true;
+}
+
+bool install_packages(const fs::path& root,
+                      const std::vector<std::string>& packages) {
+  if (!vcpkg::install(root, packages)) return false;
   return true;
 }
 

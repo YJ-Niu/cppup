@@ -119,3 +119,13 @@ Write-Host ""
 Write-Host "cppup is ready: $(Join-Path $Root 'build\cppup.exe')"
 Write-Host "Rebuild this repo with itself:"
 Write-Host "  $(Join-Path $Root 'build\cppup.exe') build --release"
+
+Write-Host ""
+Write-Host "Installing vcpkg (C++ package manager)..."
+$cppup = Join-Path $Root "build\cppup.exe"
+$vcpkgArgs = @("vcpkg", "setup")
+if ($env:CPPUP_VCPKG_SOURCE -eq "china") { $vcpkgArgs += "--china" }
+& $cppup @vcpkgArgs
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "warning: vcpkg setup failed — rerun '$cppup vcpkg setup'" -ForegroundColor Yellow
+}

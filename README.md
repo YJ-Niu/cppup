@@ -6,15 +6,17 @@
 
 ## 功能特性 (v0.1)
 
-- `cppup init MyApp` — 创建一个可直接构建的 C++23 项目
+- `cppup init MyApp` — 创建一个可直接构建的 C++23 项目（自动初始化 vcpkg 清单）
+- `cppup install fmt` — 通过 vcpkg 添加并安装依赖，写入项目配置
+- `cppup vcpkg setup` — 安装 vcpkg，可选择官网源或国内镜像源
 - `cppup add path/to/module.cppm` — 将本地模块加入 `modules` 项目
 - `cppup update` — 解析模块 import，并刷新 `modules/modules.cmake`
-- `cppup build` — 使用 **CMake + Ninja + Clang** 进行配置与构建
+- `cppup build` — 使用 **CMake + Ninja + Clang** 进行配置与构建（自动接入 vcpkg）
 - `cppup bundle` — 打包应用及其非系统运行时依赖
 - `cppup run` — 运行可执行文件
 - `cppup go` — 一步构建并运行
 - `cppup clean` — 删除构建产物和生成的 module PCM 文件
-- `cppup doctor` — 检查 Clang、CMake 和 Ninja 是否已安装
+- `cppup doctor` — 检查 Clang、CMake、Ninja 和 vcpkg 是否已安装
 - 模板代码内嵌在二进制中，不依赖外部模板文件
 
 ## 快速开始
@@ -34,6 +36,7 @@
 1. 判断操作系统（`uname` / Windows）。
 2. 在 macOS 上查找 Homebrew：Apple Silicon 通常在 `/opt/homebrew`，Intel 在 `/usr/local`；Linux 也会检查 Linuxbrew。Windows 会搜索 PATH、`Program Files`、scoop、winget 和 chocolatey。
 3. 用找到的 CMake 和 Ninja 配置当前仓库。
+4. 构建完成后自动执行 `cppup vcpkg setup` 安装 vcpkg，并询问使用官网源还是国内源。
 
 之后，cppup 会自行构建自身：
 
@@ -56,6 +59,9 @@ cppup go
 MyApp/
 ├── CMakeLists.txt
 ├── .clangd
+├── .cppup.json          # 项目元数据（vcpkg 源、triplet、已安装包）
+├── vcpkg.json           # vcpkg 清单模式依赖
+├── vcpkg-configuration.json  # 使用国内源时生成
 ├── .vscode/
 │   └── launch.json
 ├── modules/
@@ -65,6 +71,8 @@ MyApp/
 ├── .gitignore
 └── README.md
 ```
+
+依赖安装后会放在 `build/vcpkg_installed/<triplet>/`，`.clangd` 会引用其中的 `include` 目录。
 
 ## 架构说明
 
@@ -92,11 +100,33 @@ cppup init Foo -t modules
 
 > 说明：`modules` 模板需要 CMake ≥ 3.30、Ninja ≥ 1.11，以及提供 `import std;` 的编译器和标准库；`basic` 模板仅要求 CMake ≥ 3.20。
 
+## vcpkg 依赖管理
+
+项目使用 vcpkg **清单模式**（`vcpkg.json`）。常用的几个操作：
+
+```bash
+cppup vcpkg setup            # 安装 vcpkg；交互选择官网源 / 国内源
+cppup vcpkg setup --china    # 直接使用国内源（Gitee 仓库 + 清华下载镜像）
+cppup install fmt            # 添加依赖并 vcpkg install
+cppup build                  # 配置时自动使用 vcpkg toolchain
+```
+
+国内源的可选环境变量（未设置时使用默认值）：
+
+| 变量 | 默认值 |
+|------|--------|
+| `CPPUP_VCPKG_GIT_MIRROR` | `https://gitee.com/mirrors/vcpkg.git` |
+| `CPPUP_VCPKG_ASSET_MIRROR` | `https://mirrors.tuna.tsinghua.edu.cn/vcpkg/assets/` |
+
+安装信息记录在项目的 `.cppup.json` 中（源类型、triplet、vcpkg 根目录、已安装包），
+全局的源与根目录记录在 `~/.cppup/config.json`。
+
 ## 环境要求
 
 - **clang++** (C++23)
 - **CMake** ≥ 3.20
 - **Ninja**
+- **vcpkg**（`bootstrap.sh` / `bootstrap.ps1` 会自动安装；也可运行 `cppup vcpkg setup`）
 
 运行 `cppup doctor` 进行检查。
 

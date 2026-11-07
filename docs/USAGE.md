@@ -9,12 +9,58 @@
 ```bash
 cppup init MyApp
 cppup init MyLib -t modules
+cppup init MyApp --china            # 项目使用国内 vcpkg 源
 cppup init Existing --force          # 覆盖已有目录（危险）
 ```
 
 参数：
 - `-t, --template <name>`  模板名称（`basic` | `modules`）
 - `-f, --force`            覆盖已存在的输出目录
+- `--china` / `--official` 选择本项目使用的 vcpkg 源（默认读取 `~/.cppup/config.json`）
+
+`init` 会同时创建：
+
+- `vcpkg.json`：vcpkg 清单模式依赖文件
+- `vcpkg-configuration.json`：仅在 vcpkg 来自 Gitee 镜像时生成
+- `.cppup.json`：项目元数据（项目名、模板、vcpkg 源 / triplet / 已安装包）
+- `.clangd`：引用 `build/vcpkg_installed/<triplet>/include`
+
+### `cppup vcpkg setup [--china|--official] [-f]`
+
+安装 vcpkg 本体（默认目录 `~/.cppup/vcpkg`，可用 `VCPKG_ROOT` 覆盖）。
+
+```bash
+cppup vcpkg setup            # 交互式询问：官网源还是国内源
+cppup vcpkg setup --china    # Gitee 仓库 + 国内下载镜像
+cppup vcpkg setup --official # GitHub 官方源
+```
+
+国内源会：
+
+- 从 `https://gitee.com/mirrors/vcpkg.git` 克隆 vcpkg
+- 为依赖包下载设置 `X_VCPKG_ASSET_SOURCES=https://mirrors.tuna.tsinghua.edu.cn/vcpkg/assets/`
+- 在项目中生成指向 Gitee registry 的 `vcpkg-configuration.json`
+
+选择结果写入 `~/.cppup/config.json`。可通过环境变量 `CPPUP_VCPKG_GIT_MIRROR`、
+`CPPUP_VCPKG_ASSET_MIRROR` 覆盖镜像地址。
+
+### `cppup install <port>...`
+
+通过 vcpkg 安装依赖，并把安装信息写入项目配置文件。
+
+```bash
+cppup install fmt
+cppup install fmt spdlog
+cppup install                # 不带包名：仅同步 vcpkg.json
+```
+
+执行流程：
+
+1. 检查 vcpkg 是否可用（未安装时提示先运行 `cppup vcpkg setup`）
+2. 确保 `vcpkg.json` 存在
+3. 对每个包执行 `vcpkg add port <name>`
+4. 执行 `vcpkg install --triplet <host> --x-install-root build/vcpkg_installed`
+5. 更新 `.cppup.json` 中的 `packages` 列表
 
 ### `cppup add <path/to/module.cppm>`
 
@@ -53,6 +99,14 @@ cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=... -DCMAKE_CXX_COMPILER=clang++
 cmake --build build --parallel
 ```
 
+如果项目包含 `vcpkg.json`，`cppup build` 会自动定位 vcpkg 并追加：
+
+```bash
+-DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake
+```
+
+vcpkg 未安装时会自动执行一次 `cppup vcpkg setup`（交互选择源）。
+
 ### `cppup bundle [--release] [--force]`
 
 构建当前项目，并收集其非系统运行时依赖，输出到 `dist/<project>/`（macOS 下通常为 `dist/<project>.app/Contents/Frameworks`）。CMake 的 `BundleUtilities` 会处理依赖发现和平台特定修正。
@@ -90,7 +144,7 @@ cppup go --release
 
 ### `cppup doctor`
 
-检查所需工具是否可用，并输出版本号。
+检查所需工具是否可用，并输出版本号（包括可选的 vcpkg）。
 
 ### `cppup templates`
 
@@ -103,3 +157,8 @@ cppup go --release
 ## 环境变量
 
 - `NO_COLOR` — 禁用彩色输出
+- `VCPKG_ROOT` — 指定已有的 vcpkg 根目录
+- `CPPUP_VCPKG_SOURCE` — `official` 或 `china`，跳过安装源选择
+- `CPPUP_VCPKG_GIT_MIRROR` — 覆盖国内 vcpkg 仓库地址
+- `CPPUP_VCPKG_ASSET_MIRROR` — 覆盖国内依赖下载镜像
+- `VCPKG_DEFAULT_TRIPLET` — 覆盖 vcpkg 默认 triplet
