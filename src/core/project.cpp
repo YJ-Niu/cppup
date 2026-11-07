@@ -1,4 +1,5 @@
 #include "core/project.hpp"
+#include "core/check.hpp"
 #include "core/vcpkg.hpp"
 #include "templates/templates.hpp"
 #include "platform/env.hpp"
@@ -397,7 +398,17 @@ fs::path build_dir(const fs::path& root) {
   return root / "build";
 }
 
-bool build(const fs::path& root, bool release, bool verbose) {
+namespace {
+
+struct ConfigureResult {
+  fs::path build_dir;
+  std::string cmake;
+  std::string build_type;
+  std::vector<std::pair<std::string, std::string>> environment;
+};
+
+bool configure_project(const fs::path& root, bool release, bool verbose,
+                       ConfigureResult& out) {
   const auto cmake_lists = util::read_file(root / "CMakeLists.txt");
   const ModuleImports imports = scan_module_imports(root);
   const bool uses_libcxx = cmake_lists &&
@@ -484,6 +495,7 @@ bool build(const fs::path& root, bool release, bool verbose) {
       "-DCMAKE_BUILD_TYPE=" + build_type,
       "-DCMAKE_CXX_COMPILER=" + toolchain.cxx.path,
       "-DCMAKE_MAKE_PROGRAM=" + toolchain.ninja.path,
+      "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
   };
   if (imports.modules) {
     configure.push_back("-DCMAKE_CXX_SCAN_FOR_MODULES=ON");
@@ -541,21 +553,59 @@ bool build(const fs::path& root, bool release, bool verbose) {
     return false;
   }
 
+  out.build_dir = bdir;
+  out.cmake = toolchain.cmake.path;
+  out.build_type = build_type;
+  out.environment = std::move(vcpkg_env);
+  return true;
+}
+
+} // namespace
+
+bool build(const fs::path& root, bool release, bool verbose, bool run_checks,
+           bool fix) {
+  ConfigureResult configured;
+  if (!configure_project(root, release, verbose, configured)) return false;
+
+  if (run_checks) {
+    check::Options opts;
+    opts.build_dir = configured.build_dir;
+    opts.fix = fix;
+    opts.verbose = verbose;
+    if (!check::run(root, opts)) {
+      util::error("code checks failed; build aborted (use --no-check to skip)");
+      return false;
+    }
+  }
+
   std::vector<std::string> build_cmd = {
-      toolchain.cmake.path, "--build", bdir.string(),
-      "--parallel"
-  };
+      configured.cmake, "--build", configured.build_dir.string(), "--parallel"};
   if (verbose) {
     std::cout << util::bold("Building...\n");
   }
-  auto b = util::run(build_cmd, {}, false, !verbose, vcpkg_env);
+  auto b = util::run(build_cmd, {}, false, !verbose, configured.environment);
   if (b.exit_code != 0) {
     util::error("build failed");
     return false;
   }
 
-  util::success("Build finished (" + build_type + ")");
+  util::success("Build finished (" + configured.build_type + ")");
   return true;
+}
+
+bool check_code(const fs::path& root, bool release, bool verbose, bool fix) {
+  fs::path bdir = build_dir(root);
+  if (!fs::is_regular_file(bdir / "compile_commands.json")) {
+    ConfigureResult configured;
+    if (!configure_project(root, release, verbose, configured)) return false;
+    bdir = configured.build_dir;
+  }
+
+  check::Options opts;
+  opts.build_dir = bdir;
+  opts.fix = fix;
+  opts.verbose = verbose;
+  return check::run(root, opts);
 }
 
 bool install_packages(const fs::path& root,
@@ -767,8 +817,8 @@ bool bundle(const fs::path& root, bool release, bool force, bool verbose) {
   }
 }
 
-bool go(const fs::path& root, bool release) {
-  if (!build(root, release, true)) return false;
+bool go(const fs::path& root, bool release, bool run_checks, bool fix) {
+  if (!build(root, release, true, run_checks, fix)) return false;
   std::cout << "\n";
   return run(root);
 }

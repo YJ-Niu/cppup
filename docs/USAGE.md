@@ -84,14 +84,37 @@ cppup build
 
 PCM 文件是编译器特定的构建产物；`cppup update` 不会把它们加入 CMake 源列表。`cppup build` 会根据当前编译器生成 PCM，而 `cppup clean` 会删除这些产物。
 
-### `cppup build [-r]`
+### `cppup check [--fix]`
+
+配置项目（生成 `build/compile_commands.json`），然后在不编译的情况下执行代码检查：
+
+- **格式检查**：`clang-format --dry-run --Werror`，使用项目根目录的 `.clang-format`；`--fix` 会直接格式化源码。
+- **未使用代码**：`clang-diagnostic-unused-*`（未使用变量、函数等）。
+- **内存安全与常见缺陷**：`clang-analyzer-*`（空指针解引用、泄漏、use-after-free 等）和 `bugprone-*`；
+  检查项由项目根目录的 `.clang-tidy` 配置，`cppup init` 会自动生成。
+- **自动修复**：`--fix` 先格式化源码，再应用 `clang-tidy` 提供的建议修复（如 `modernize-*`）；
+  无法自动修复的问题仍会导致检查失败。
+
+```bash
+cppup check
+cppup check --fix
+```
+
+缺少 `clang-format` / `clang-tidy` 时会给出警告并跳过对应检查；C++ modules 项目在构建前无法生成
+clang-tidy 所需的 module map，因此该阶段只做格式检查。
+
+### `cppup build [-r] [--no-check] [--fix]`
 
 配置并构建当前项目（如果需要会先生成 build 目录）。
 
 ```bash
-cppup build              # Debug
+cppup build              # Debug；构建前运行代码检查
 cppup build --release    # Release
+cppup build --no-check   # 跳过构建前的代码检查
+cppup build --fix        # 先自动格式化，再检查并构建
 ```
+
+代码检查在 CMake configure 之后、`cmake --build` 之前执行；任何一项检查失败都会中止构建。
 
 使用方式：
 ```bash

@@ -61,6 +61,7 @@ add_library(cppup_core
   src/core/project.cpp
   src/core/modules.cpp
   src/core/vcpkg.cpp
+  src/core/check.cpp
   src/platform/env.cpp
   src/templates/templates.cpp
   src/util/util.cpp

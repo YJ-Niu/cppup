@@ -213,6 +213,8 @@ Environment detect(bool prefer_homebrew_llvm) {
   e.ninja   = check_tool("ninja", e.brew_prefix, e.os);
   e.git     = check_tool("git", e.brew_prefix, e.os);
   e.vcpkg   = check_tool("vcpkg", e.brew_prefix, e.os);
+  e.clang_format = check_tool("clang-format", e.brew_prefix, e.os);
+  e.clang_tidy   = check_tool("clang-tidy", e.brew_prefix, e.os);
 
   e.cxx = e.clangxx;
   if (!e.cxx.found && e.os != HostOs::Windows) {
@@ -231,6 +233,10 @@ Environment detect(bool prefer_homebrew_llvm) {
     }
   }
   return e;
+}
+
+ToolInfo find_tool(std::string_view name) {
+  return check_tool(name, detect_brew_prefix(), host_os());
 }
 
 bool doctor(bool verbose) {
@@ -282,6 +288,8 @@ bool doctor(bool verbose) {
   print("clang", e.clang, false);
   print("git", e.git, false);
   print("vcpkg", e.vcpkg, false);
+  print("clang-format", e.clang_format, false);
+  print("clang-tidy", e.clang_tidy, false);
 
   if (verbose) {
     std::cout << "\n";

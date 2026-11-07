@@ -22,6 +22,8 @@ enum class Option {
   Template,
   China,
   Official,
+  NoCheck,
+  Fix,
   Unknown
 };
 
@@ -34,6 +36,7 @@ Option parse_option(std::string_view arg) {
       {"-v", Option::Version},    {"--version", Option::Version},
       {"-t", Option::Template},   {"--template", Option::Template},
       {"--china", Option::China}, {"--official", Option::Official},
+      {"--no-check", Option::NoCheck}, {"--fix", Option::Fix},
   };
   const auto it = options.find(arg);
   return it == options.end() ? Option::Unknown : it->second;
@@ -80,6 +83,12 @@ Args parse(int argc, char** argv) {
         case Option::Official:
           a.vcpkg_source = "official";
           break;
+        case Option::NoCheck:
+          a.no_check = true;
+          break;
+        case Option::Fix:
+          a.fix = true;
+          break;
         case Option::Unknown:
           util::warn("unknown option: " + std::string(arg));
           break;
@@ -108,7 +117,8 @@ void print_help(std::string_view program) {
             << "  add <module>    Add a local .cppm module to a modules project\n"
             << "  update          Resolve module imports and refresh modules.cmake\n"
             << "  install <port>  Add vcpkg packages and install them\n"
-            << "  build           Configure + build with CMake + Ninja (vcpkg aware)\n"
+            << "  check           Run format / unused-code / static-analysis checks\n"
+            << "  build           Configure + build (runs checks first unless --no-check)\n"
             << "  bundle          Build a distributable app with runtime dependencies\n"
             << "  run             Run the built executable\n"
             << "  go              Build then run (one-shot)\n"
@@ -124,6 +134,8 @@ void print_help(std::string_view program) {
             << "  -f, --force             Replace existing output (init/bundle/setup)\n"
             << "  -r, --release           Release build (default: Debug)\n"
             << "      --verbose           More output during build\n"
+            << "      --no-check          Skip the code checks before building\n"
+            << "      --fix               Apply clang-format and clang-tidy fixes\n"
             << "      --china             Use the China vcpkg mirror (Gitee + domestic assets)\n"
             << "      --official          Use the official GitHub vcpkg source\n"
             << "  -h, --help              Show help\n\n"
@@ -132,6 +144,7 @@ void print_help(std::string_view program) {
             << "  cppup init MyApp\n"
             << "  cppup init MyApp -t modules\n"
             << "  cppup install fmt\n"
+            << "  cppup check --fix\n"
             << "  cppup vcpkg setup --china\n"
             << "  cppup add ../shared/math.cppm\n"
             << "  cppup update\n"
@@ -200,7 +213,14 @@ int dispatch(const Args& args) {
   }
 
   if (args.command == "build") {
-    return project::build(*root, args.release, args.verbose) ? 0 : 1;
+    return project::build(*root, args.release, args.verbose, !args.no_check,
+                          args.fix)
+               ? 0
+               : 1;
+  }
+  if (args.command == "check") {
+    return project::check_code(*root, args.release, args.verbose, args.fix) ? 0
+                                                                           : 1;
   }
   if (args.command == "install") {
     if (args.positional.empty()) {
@@ -225,7 +245,7 @@ int dispatch(const Args& args) {
     return project::run(*root, args.positional) ? 0 : 1;
   }
   if (args.command == "go") {
-    return project::go(*root, args.release) ? 0 : 1;
+    return project::go(*root, args.release, !args.no_check, args.fix) ? 0 : 1;
   }
   if (args.command == "clean") {
     return project::clean(*root) ? 0 : 1;

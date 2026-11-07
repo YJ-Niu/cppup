@@ -14,6 +14,8 @@ struct Args {
   bool force = false;
   bool release = false;
   bool verbose = false;
+  bool no_check = false;   // skip pre-build code checks
+  bool fix = false;        // apply clang-format fixes
   std::string template_name = "basic";
   std::string vcpkg_source;  // "official", "china", or empty
 };

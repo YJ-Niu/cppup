@@ -11,7 +11,8 @@
 - `cppup vcpkg setup` — 安装 vcpkg，可选择官网源或国内镜像源
 - `cppup add path/to/module.cppm` — 将本地模块加入 `modules` 项目
 - `cppup update` — 解析模块 import，并刷新 `modules/modules.cmake`
-- `cppup build` — 使用 **CMake + Ninja + Clang** 进行配置与构建（自动接入 vcpkg）
+- `cppup check` — 运行 `clang-format` 格式检查、未使用代码检查与 `clang-tidy` 静态分析；`--fix` 自动修复可修复的问题
+- `cppup build` — 使用 **CMake + Ninja + Clang** 配置与构建；构建前自动运行代码检查（`--no-check` 可跳过）
 - `cppup bundle` — 打包应用及其非系统运行时依赖
 - `cppup run` — 运行可执行文件
 - `cppup go` — 一步构建并运行

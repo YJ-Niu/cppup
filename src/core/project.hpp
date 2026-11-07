@@ -37,8 +37,16 @@ std::optional<fs::path> find_root(const fs::path& start = fs::current_path());
 // Build directory (root / "build")
 fs::path build_dir(const fs::path& root);
 
-// Configure + build with CMake + Ninja
-bool build(const fs::path& root, bool release = false, bool verbose = false);
+// Configure + build with CMake + Ninja. By default code format, unused-code
+// and static-analysis checks run after configure and before compiling; the
+// build stops when any check fails.
+bool build(const fs::path& root, bool release = false, bool verbose = false,
+           bool run_checks = true, bool fix = false);
+
+// Configure (to generate compile_commands.json) and run the code checks
+// without building.
+bool check_code(const fs::path& root, bool release = false, bool verbose = false,
+                bool fix = false);
 
 bool bundle(const fs::path& root, bool release = false, bool force = false,
             bool verbose = false);
@@ -47,7 +55,8 @@ bool bundle(const fs::path& root, bool release = false, bool force = false,
 bool run(const fs::path& root, const std::vector<std::string>& args = {});
 
 // Build then run
-bool go(const fs::path& root, bool release = false);
+bool go(const fs::path& root, bool release = false, bool run_checks = true,
+        bool fix = false);
 
 // Remove build directory
 bool clean(const fs::path& root);
